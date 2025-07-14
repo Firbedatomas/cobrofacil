@@ -37,13 +37,13 @@ interface LoginProps {
   onLoginSuccess?: () => void;
 }
 
-// Credenciales de prueba para desarrollo
+// Credenciales de prueba para desarrollo - CORREGIDAS
 const QUICK_ACCESS_USERS = [
   {
     rol: 'ADMIN',
     nombre: 'Administrador',
     email: 'admin@cobrofacil.io',
-    password: 'admin123',
+    password: '123456',
     icon: AdminPanelSettings,
     color: '#f44336',
     descripcion: 'Acceso completo al sistema'
@@ -52,7 +52,7 @@ const QUICK_ACCESS_USERS = [
     rol: 'SUPERVISOR',
     nombre: 'Supervisor',
     email: 'supervisor@cobrofacil.io',
-    password: 'supervisor123',
+    password: '123456',
     icon: SupervisorAccount,
     color: '#ff9800',
     descripcion: 'Gestión de personal y reportes'
@@ -61,7 +61,7 @@ const QUICK_ACCESS_USERS = [
     rol: 'CAJERO',
     nombre: 'Cajero',
     email: 'cajero1@cobrofacil.io',
-    password: 'cajero123',
+    password: '123456',
     icon: ShoppingCart,
     color: '#4caf50',
     descripcion: 'Operaciones de venta'
@@ -171,17 +171,37 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2
+        p: 2,
+        position: 'relative',
+        overflow: 'hidden',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'url("data:image/svg+xml,%3Csvg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="white" fill-opacity="0.03"%3E%3Cpath d="M20 0v40M0 20h40"/%3E%3C/g%3E%3C/svg%3E")',
+          pointerEvents: 'none'
+        }
       }}
     >
-      <Container maxWidth="sm">
+      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
         <Paper 
           elevation={24} 
           sx={{ 
             p: 4, 
-            borderRadius: 3,
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)'
+            borderRadius: 4,
+            background: 'rgba(255, 255, 255, 0.98)',
+            backdropFilter: 'blur(15px)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            transform: 'translateY(-10px)',
+            transition: 'all 0.3s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-15px)',
+              boxShadow: '0 35px 60px -12px rgba(0, 0, 0, 0.3)',
+            }
           }}
         >
           {/* Header */}
@@ -225,17 +245,27 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
           {/* Botones de acceso rápido solo en desarrollo */}
           {isDevelopment && (
-            <Box sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Box sx={{ mb: 4 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                gap: 1, 
+                mb: 3,
+                p: 2,
+                background: 'linear-gradient(135deg, #fff3e0 0%, #f3e5f5 100%)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 152, 0, 0.2)'
+              }}>
                 <BugReport sx={{ color: '#ff9800' }} />
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#f57c00' }}>
                   Acceso rápido para testing
                 </Typography>
                 <Chip 
                   label="DEV" 
                   size="small" 
                   color="warning" 
-                  sx={{ fontSize: '0.7rem' }}
+                  sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}
                 />
               </Box>
               
@@ -251,31 +281,35 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         sx={{ 
                           textAlign: 'center',
                           cursor: 'pointer',
-                          transition: 'all 0.2s ease',
+                          transition: 'all 0.3s ease',
+                          background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                          borderColor: 'rgba(0, 0, 0, 0.1)',
                           '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: theme.shadows[4],
-                            borderColor: user.color
+                            transform: 'translateY(-4px)',
+                            boxShadow: `0 8px 25px ${user.color}30`,
+                            borderColor: user.color,
+                            background: `linear-gradient(135deg, ${user.color}10 0%, ${user.color}05 100%)`
                           }
                         }}
                         onClick={() => !isLoading && handleQuickLogin(user)}
                       >
-                        <CardContent sx={{ p: 2 }}>
+                        <CardContent sx={{ p: 2.5 }}>
                           <IconComponent 
                             sx={{ 
-                              fontSize: 28, 
+                              fontSize: 36, 
                               color: user.color, 
-                              mb: 1 
+                              mb: 1.5,
+                              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
                             }} 
                           />
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5, color: '#333' }}>
                             {user.nombre}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" display="block">
                             {user.descripcion}
                           </Typography>
                         </CardContent>
-                        <CardActions sx={{ justifyContent: 'center', pt: 0 }}>
+                        <CardActions sx={{ justifyContent: 'center', pt: 0, pb: 2 }}>
                           <Button 
                             size="small" 
                             variant="contained"
@@ -283,7 +317,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             sx={{ 
                               bgcolor: user.color,
                               '&:hover': { bgcolor: user.color, opacity: 0.9 },
-                              minWidth: 80
+                              minWidth: 90,
+                              borderRadius: 2,
+                              boxShadow: `0 4px 15px ${user.color}40`,
+                              fontWeight: 'bold'
                             }}
                             startIcon={isLoading ? <CircularProgress size={14} /> : <FlashOn />}
                           >
@@ -296,10 +333,16 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 })}
               </Grid>
               
-              <Divider sx={{ my: 3 }}>
-                <Typography variant="body2" color="text.secondary">
-                  O usa el formulario manual
-                </Typography>
+              <Divider sx={{ my: 4 }}>
+                <Chip 
+                  label="O usa el formulario manual"
+                  variant="outlined"
+                  sx={{ 
+                    bgcolor: 'background.paper',
+                    color: 'text.secondary',
+                    borderColor: 'rgba(0, 0, 0, 0.1)'
+                  }}
+                />
               </Divider>
             </Box>
           )}
@@ -316,6 +359,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 autoComplete="email"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 3,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: 2
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: 2
+                    }
+                  }
+                }}
                 InputProps={{
                   startAdornment: <Person sx={{ color: 'text.secondary', mr: 1 }} />
                 }}
@@ -330,12 +387,30 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 autoComplete="current-password"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 3,
+                    background: 'rgba(255, 255, 255, 0.9)',
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: 2
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: 2
+                    }
+                  }
+                }}
                 InputProps={{
                   startAdornment: <Security sx={{ color: 'text.secondary', mr: 1 }} />,
                   endAdornment: (
                     <Button
                       onClick={() => setShowPassword(!showPassword)}
-                      sx={{ minWidth: 'auto', p: 1 }}
+                      sx={{ 
+                        minWidth: 'auto', 
+                        p: 1,
+                        borderRadius: 2
+                      }}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </Button>
@@ -350,13 +425,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 size="large"
                 disabled={loading || !email || !password}
                 sx={{ 
-                  py: 1.5,
+                  py: 2,
                   fontSize: '1.1rem',
-                  borderRadius: 2,
+                  borderRadius: 3,
                   background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                  boxShadow: '0 8px 20px rgba(33, 150, 243, 0.4)',
+                  textTransform: 'none',
+                  fontWeight: 'bold',
                   '&:hover': {
                     background: 'linear-gradient(45deg, #1976D2 30%, #0288D1 90%)',
-                  }
+                    boxShadow: '0 12px 25px rgba(33, 150, 243, 0.6)',
+                    transform: 'translateY(-2px)'
+                  },
+                  '&:disabled': {
+                    background: 'rgba(0, 0, 0, 0.12)',
+                    boxShadow: 'none'
+                  },
+                  transition: 'all 0.3s ease'
                 }}
                 startIcon={loading ? <CircularProgress size={20} /> : <LoginIcon />}
               >
