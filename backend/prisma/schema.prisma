@@ -1,0 +1,879 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuarios (empleados del sistema)
+model Usuario {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  nombre      String
+  apellido    String
+  password    String
+  rol         RolUsuario @default(CAJERO)
+  activo      Boolean  @default(true)
+  fechaCreacion DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones existentes
+  ventasRealizadas Venta[]
+  sesiones        SesionUsuario[]
+  turnosAbiertos  Turno[] @relation("UsuarioApertura")
+  turnosCerrados  Turno[] @relation("UsuarioCierre")
+  movimientosCaja MovimientoCaja[]
+  
+  // Nuevas relaciones
+  presupuestos    Presupuesto[]
+  facturasRecurrentes FacturaRecurrente[]
+  listasPrecios   ListaPrecio[]
+  empleados       Empleado[]
+  liquidaciones   LiquidacionSueldo[]
+  cheques         Cheque[]
+  mesas           Mesa[]
+  sectores        Sector[]
+  objetosDecorativos ObjetoDecorativo[]
+  
+  @@map("usuarios")
+}
+
+// Modelo de Sesiones de Usuario para control de acceso
+model SesionUsuario {
+  id          String   @id @default(cuid())
+  usuarioId   String
+  token       String   @unique
+  fechaInicio DateTime @default(now())
+  fechaFin    DateTime?
+  activa      Boolean  @default(true)
+  
+  // Relaciones
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  
+  @@map("sesiones_usuario")
+}
+
+// Modelo de Categorías de Productos
+model Categoria {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  descripcion String?
+  activa      Boolean  @default(true)
+  fechaCreacion DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  productos   Producto[]
+  
+  @@map("categorias")
+}
+
+// Modelo de Productos
+model Producto {
+  id          String   @id @default(cuid())
+  codigo      String   @unique
+  nombre      String
+  descripcion String?
+  precio      Decimal  @db.Decimal(10, 2)
+  costo       Decimal  @db.Decimal(10, 2) @default(0)
+  activo      Boolean  @default(true)
+  fechaCreacion DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relación con categoría
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+  
+  // Relaciones existentes
+  detallesVenta DetalleVenta[]
+  
+  // Nuevas relaciones
+  detallesPresupuesto DetallePresupuesto[]
+  detallesFacturaRecurrente DetalleFacturaRecurrente[]
+  preciosEnListas PrecioProducto[]
+  
+  @@map("productos")
+}
+
+// Modelo de Ventas
+model Venta {
+  id          String   @id @default(cuid())
+  numeroVenta String   @unique
+  total       Decimal  @db.Decimal(10, 2)
+  subtotal    Decimal  @db.Decimal(10, 2)
+  impuesto    Decimal  @db.Decimal(10, 2) @default(0)
+  descuento   Decimal  @db.Decimal(10, 2) @default(0)
+  metodoPago  MetodoPago? // Opcional para ventas de mesa pendientes
+  estado      EstadoVenta @default(PENDIENTE) // Ventas inician pendientes
+  fechaVenta  DateTime @default(now())
+  
+  // Campos AFIP
+  tipoComprobante TipoComprobante @default(TICKET_NO_FISCAL)
+  cae         String?  // Código de Autorización Electrónico
+  vencimientoCae DateTime? // Vencimiento del CAE
+  puntoVenta  Int     @default(1)
+  numeroComprobante String? // Número del comprobante AFIP
+  
+  // Relación con usuario (cajero)
+  usuarioId   String
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Relación con cliente (opcional)
+  clienteId   String?
+  cliente     Cliente? @relation(fields: [clienteId], references: [id])
+  
+  // Relación con mesa (opcional)
+  mesaId      String?
+  mesa        Mesa?    @relation(fields: [mesaId], references: [id])
+  
+  // Relaciones existentes
+  detalles    DetalleVenta[]
+  
+  // Nuevas relaciones
+  presupuestoOrigen Presupuesto[]
+  ventaRecurrente VentaRecurrente?
+  cheques         Cheque[]
+  
+  @@map("ventas")
+}
+
+// Modelo de Detalles de Venta
+model DetalleVenta {
+  id          String   @id @default(cuid())
+  cantidad    Int
+  precioUnitario Decimal @db.Decimal(10, 2)
+  subtotal    Decimal  @db.Decimal(10, 2)
+  observaciones String?  // Observaciones específicas del producto
+  fechaCreacion DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  ventaId     String
+  venta       Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id])
+  
+  @@map("detalles_venta")
+}
+
+
+
+// Modelo de Configuración del Sistema
+model ConfiguracionSistema {
+  id          String   @id @default(cuid())
+  clave       String   @unique
+  valor       String
+  descripcion String?
+  fechaActualizacion DateTime @updatedAt
+  
+  @@map("configuracion_sistema")
+}
+
+// Modelo de Configuración AFIP
+model ConfiguracionAfip {
+  id          String   @id @default(cuid())
+  habilitado  Boolean  @default(false)
+  cuitEmpresa String?
+  razonSocial String?
+  puntoVenta  Int      @default(1)
+  ambiente    AmbienteAfip @default(TESTING)
+  
+  // Certificados
+  certificado String? // Path al certificado
+  clavePrivada String? // Path a la clave privada
+  
+  // Estado
+  ultimaConexion DateTime?
+  tokenAfip   String?
+  signAfip    String?
+  
+  fechaCreacion DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  @@map("configuracion_afip")
+}
+
+// Modelo de Turnos de Caja
+model Turno {
+  id                String   @id @default(cuid())
+  nombre            String   // Ej: "Mañana", "Tarde", "Noche"
+  caja              String   @default("PRINCIPAL") // Para múltiples cajas
+  fechaApertura     DateTime @default(now())
+  fechaCierre       DateTime?
+  horaInicio        String   // Horario planificado de inicio (HH:mm)
+  horaFin           String   // Horario planificado de fin (HH:mm)
+  fondoInicial      Decimal  @db.Decimal(10, 2)
+  fondoFinal        Decimal? @db.Decimal(10, 2)
+  estado            EstadoTurno @default(ABIERTO)
+  
+  // Usuario que abrió el turno
+  usuarioAperturaId String
+  usuarioApertura   Usuario  @relation("UsuarioApertura", fields: [usuarioAperturaId], references: [id])
+  
+  // Usuario que cerró el turno (opcional)
+  usuarioCierreId   String?
+  usuarioCierre     Usuario? @relation("UsuarioCierre", fields: [usuarioCierreId], references: [id])
+  
+  // Observaciones
+  observacionesApertura String?
+  observacionesCierre   String?
+  
+  // Arqueo final
+  efectivoContado   Decimal? @db.Decimal(10, 2)
+  efectivoSistema   Decimal? @db.Decimal(10, 2)
+  diferencia        Decimal? @db.Decimal(10, 2)
+  observacionesArqueo String?
+  
+  // Relación con el turno anterior para encadenamiento
+  turnoAnteriorId   String? @unique
+  turnoAnterior     Turno?   @relation("TurnosEncadenados", fields: [turnoAnteriorId], references: [id])
+  turnosSiguientes  Turno[]  @relation("TurnosEncadenados")
+  
+  // Auditoría y control
+  fechaCreacion     DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  movimientos       MovimientoCaja[]
+  
+  // Índices para garantizar unicidad
+  @@unique([caja, nombre, fechaApertura]) // No se puede abrir el mismo turno dos veces el mismo día
+  @@index([caja, estado, fechaApertura]) // Para búsquedas rápidas
+  
+  @@map("turnos")
+}
+
+// Modelo de Movimientos de Caja
+model MovimientoCaja {
+  id                String   @id @default(cuid())
+  
+  // Relación con turno
+  turnoId           String
+  turno             Turno    @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  
+  // Datos del movimiento
+  tipo              TipoMovimientoCaja
+  concepto          String
+  monto             Decimal  @db.Decimal(10, 2)
+  metodoPago        MetodoPago @default(EFECTIVO)
+  fecha             DateTime @default(now())
+  
+  // Usuario que registró el movimiento
+  usuarioId         String
+  usuario           Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Datos adicionales para comprobantes fiscales
+  tipoComprobante   TipoComprobante?
+  numeroComprobante String?
+  cae               String?
+  ventaId           String? // Referencia a venta si aplica
+  
+  // Autorización y auditoría
+  requiereAutorizacion Boolean @default(false)
+  autorizado        Boolean  @default(true)
+  autorizadoPor     String?  // ID del supervisor que autorizó
+  
+  // Para transferencias entre cajas
+  cajaOrigen        String?
+  cajaDestino       String?
+  
+  // Observaciones adicionales
+  observaciones     String?
+  
+  // Auditoría
+  fechaCreacion     DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  @@map("movimientos_caja")
+}
+
+// Enums
+enum RolUsuario {
+  ADMIN
+  SUPERVISOR
+  CAJERO
+  MOZO
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TARJETA_DEBITO
+  TARJETA_CREDITO
+  TRANSFERENCIA
+  QR_MERCADOPAGO
+}
+
+enum EstadoVenta {
+  PENDIENTE
+  COMPLETADA
+  CANCELADA
+  DEVUELTA
+}
+
+
+
+enum TipoComprobante {
+  TICKET_NO_FISCAL
+  TICKET_FISCAL
+  FACTURA_A
+  FACTURA_B
+  GUIA_DE_REMISION
+  NOTA_DE_CREDITO
+  NOTA_DE_DEBITO
+  RECIBO_DE_PAGO
+}
+
+enum AmbienteAfip {
+  TESTING
+  PRODUCCION
+}
+
+enum EstadoTurno {
+  ABIERTO
+  CERRADO
+  FORZADO_CIERRE  // Para cierres administrativos
+}
+
+enum TipoMovimientoCaja {
+  VENTA           // Ingresos por ventas
+  APORTE          // Aportes de efectivo (fondo inicial, etc.)
+  RETIRO          // Retiros de efectivo autorizados
+  GASTO           // Gastos menores pagados desde caja
+  PAGO_PROVEEDOR  // Pagos a proveedores
+  AJUSTE          // Ajustes contables
+  TRANSFERENCIA   // Transferencias entre cajas
+  ARQUEO          // Diferencias de arqueo
+}
+
+// Modelo de Clientes
+model Cliente {
+  id              String   @id @default(cuid())
+  nombre          String
+  apellido        String?
+  razonSocial     String?
+  email           String?
+  telefono        String?
+  direccion       String?
+  cuit            String?  @unique
+  tipoDocumento   TipoDocumento @default(DNI)
+  numeroDocumento BigInt?
+  condicionIva    CondicionIva @default(CONSUMIDOR_FINAL)
+  activo          Boolean  @default(true)
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  presupuestos    Presupuesto[]
+  ventasCliente   Venta[]
+  facturasRecurrentes FacturaRecurrente[]
+  listasPrecios   ListaPrecioCliente[]
+  cheques         Cheque[]
+  
+  @@map("clientes")
+}
+
+// Modelo de Presupuestos
+model Presupuesto {
+  id              String   @id @default(cuid())
+  numero          String   @unique
+  fechaCreacion   DateTime @default(now())
+  fechaVencimiento DateTime
+  total           Decimal  @db.Decimal(10, 2)
+  subtotal        Decimal  @db.Decimal(10, 2)
+  impuestos       Decimal  @db.Decimal(10, 2) @default(0)
+  descuento       Decimal  @db.Decimal(10, 2) @default(0)
+  estado          EstadoPresupuesto @default(PENDIENTE)
+  observaciones   String?
+  condicionesComerciales String?
+  validezDias     Int      @default(30)
+  
+  // Datos del cliente
+  clienteId       String?
+  cliente         Cliente? @relation(fields: [clienteId], references: [id])
+  
+  // Datos de facturación manual si no hay cliente
+  nombreCliente   String?
+  emailCliente    String?
+  telefonoCliente String?
+  direccionCliente String?
+  
+  // Usuario que creó el presupuesto
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Relaciones
+  detalles        DetallePresupuesto[]
+  ventaGenerada   Venta?   @relation(fields: [ventaId], references: [id])
+  ventaId         String?
+  
+  // Seguimiento de email
+  enviadoPorEmail Boolean  @default(false)
+  fechaEnvio      DateTime?
+  
+  @@map("presupuestos")
+}
+
+// Modelo de Detalles de Presupuesto
+model DetallePresupuesto {
+  id              String   @id @default(cuid())
+  cantidad        Int
+  precioUnitario  Decimal  @db.Decimal(10, 2)
+  subtotal        Decimal  @db.Decimal(10, 2)
+  descripcion     String?
+  
+  // Relaciones
+  presupuestoId   String
+  presupuesto     Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  
+  productoId      String?
+  producto        Producto? @relation(fields: [productoId], references: [id])
+  
+  @@map("detalles_presupuesto")
+}
+
+// Modelo de Facturas Recurrentes
+model FacturaRecurrente {
+  id              String   @id @default(cuid())
+  nombre          String
+  descripcion     String?
+  frecuencia      FrecuenciaFacturacion
+  diaVencimiento  Int      // Día del mes para facturar
+  proximaFactura  DateTime
+  activa          Boolean  @default(true)
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Datos del cliente
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id])
+  
+  // Datos de la factura
+  total           Decimal  @db.Decimal(10, 2)
+  subtotal        Decimal  @db.Decimal(10, 2)
+  impuestos       Decimal  @db.Decimal(10, 2) @default(0)
+  tipoComprobante TipoComprobante @default(FACTURA_B)
+  metodoPago      MetodoPago @default(TRANSFERENCIA)
+  
+  // Usuario que creó la factura recurrente
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Relaciones
+  detalles        DetalleFacturaRecurrente[]
+  ventasGeneradas VentaRecurrente[]
+  
+  @@map("facturas_recurrentes")
+}
+
+// Modelo de Detalles de Factura Recurrente
+model DetalleFacturaRecurrente {
+  id              String   @id @default(cuid())
+  cantidad        Int
+  precioUnitario  Decimal  @db.Decimal(10, 2)
+  subtotal        Decimal  @db.Decimal(10, 2)
+  descripcion     String
+  
+  // Relaciones
+  facturaRecurrenteId String
+  facturaRecurrente   FacturaRecurrente @relation(fields: [facturaRecurrenteId], references: [id], onDelete: Cascade)
+  
+  productoId      String?
+  producto        Producto? @relation(fields: [productoId], references: [id])
+  
+  @@map("detalles_factura_recurrente")
+}
+
+// Modelo de Ventas generadas por facturas recurrentes
+model VentaRecurrente {
+  id              String   @id @default(cuid())
+  facturaRecurrenteId String
+  facturaRecurrente   FacturaRecurrente @relation(fields: [facturaRecurrenteId], references: [id])
+  
+  ventaId         String   @unique
+  venta           Venta    @relation(fields: [ventaId], references: [id])
+  
+  fechaGeneracion DateTime @default(now())
+  notificacionEnviada Boolean @default(false)
+  
+  @@map("ventas_recurrentes")
+}
+
+// Modelo de Listas de Precios
+model ListaPrecio {
+  id              String   @id @default(cuid())
+  nombre          String   @unique
+  descripcion     String?
+  activa          Boolean  @default(true)
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Configuración de descuentos
+  descuentoGeneral Decimal @db.Decimal(5, 2) @default(0) // Porcentaje
+  moneda          Moneda   @default(ARS)
+  
+  // Usuario que creó la lista
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Relaciones
+  precios         PrecioProducto[]
+  clientesAsignados ListaPrecioCliente[]
+  
+  @@map("listas_precios")
+}
+
+// Modelo de Precios por Producto en Lista
+model PrecioProducto {
+  id              String   @id @default(cuid())
+  precio          Decimal  @db.Decimal(10, 2)
+  descuento       Decimal  @db.Decimal(5, 2) @default(0) // Porcentaje específico
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  listaPrecioId   String
+  listaPrecio     ListaPrecio @relation(fields: [listaPrecioId], references: [id], onDelete: Cascade)
+  
+  productoId      String
+  producto        Producto @relation(fields: [productoId], references: [id])
+  
+  @@unique([listaPrecioId, productoId])
+  @@map("precios_productos")
+}
+
+// Modelo de Asignación de Lista de Precios a Clientes
+model ListaPrecioCliente {
+  id              String   @id @default(cuid())
+  fechaAsignacion DateTime @default(now())
+  activa          Boolean  @default(true)
+  
+  // Relaciones
+  clienteId       String
+  cliente         Cliente  @relation(fields: [clienteId], references: [id])
+  
+  listaPrecioId   String
+  listaPrecio     ListaPrecio @relation(fields: [listaPrecioId], references: [id])
+  
+  @@unique([clienteId, listaPrecioId])
+  @@map("lista_precio_clientes")
+}
+
+// Modelo de Empleados para Sueldos
+model Empleado {
+  id              String   @id @default(cuid())
+  legajo          String   @unique
+  nombre          String
+  apellido        String
+  email           String?
+  telefono        String?
+  direccion       String?
+  cuit            String?  @unique
+  fechaIngreso    DateTime
+  fechaEgreso     DateTime?
+  activo          Boolean  @default(true)
+  
+  // Datos laborales
+  categoria       String
+  cargo           String
+  sector          String?
+  
+  // Datos salariales
+  sueldoBasico    Decimal  @db.Decimal(10, 2)
+  modalidadPago   ModalidadPago @default(MENSUAL)
+  
+  // Datos bancarios
+  banco           String?
+  cbu             String?
+  aliasCbu        String?
+  
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Usuario que creó el empleado
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Relaciones
+  liquidaciones   LiquidacionSueldo[]
+  
+  @@map("empleados")
+}
+
+// Modelo de Liquidaciones de Sueldo
+model LiquidacionSueldo {
+  id              String   @id @default(cuid())
+  periodo         String   // "2024-01", "2024-02", etc.
+  fechaLiquidacion DateTime @default(now())
+  fechaPago       DateTime?
+  
+  // Conceptos
+  sueldoBasico    Decimal  @db.Decimal(10, 2)
+  horasExtra      Decimal  @db.Decimal(10, 2) @default(0)
+  premios         Decimal  @db.Decimal(10, 2) @default(0)
+  descuentos      Decimal  @db.Decimal(10, 2) @default(0)
+  
+  // Aportes y contribuciones
+  aportesJubilatorios Decimal @db.Decimal(10, 2) @default(0)
+  aportesSociales     Decimal @db.Decimal(10, 2) @default(0)
+  obraSocial          Decimal @db.Decimal(10, 2) @default(0)
+  
+  // Totales
+  totalHaberes    Decimal  @db.Decimal(10, 2)
+  totalDescuentos Decimal  @db.Decimal(10, 2)
+  netoAPagar      Decimal  @db.Decimal(10, 2)
+  
+  estado          EstadoLiquidacion @default(PENDIENTE)
+  observaciones   String?
+  
+  // Relaciones
+  empleadoId      String
+  empleado        Empleado @relation(fields: [empleadoId], references: [id])
+  
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  @@unique([empleadoId, periodo])
+  @@map("liquidaciones_sueldo")
+}
+
+// Modelo de Cheques
+model Cheque {
+  id              String   @id @default(cuid())
+  numero          String   @unique
+  banco           String
+  sucursal        String?
+  fechaEmision    DateTime
+  fechaVencimiento DateTime
+  importe         Decimal  @db.Decimal(10, 2)
+  estado          EstadoCheque @default(PENDIENTE)
+  tipo            TipoCheque
+  
+  // Datos del librador/beneficiario
+  librador        String?  // Quien emite el cheque
+  beneficiario    String?  // A favor de quien está el cheque
+  cuit            String?
+  
+  // Datos del cliente (si está asociado)
+  clienteId       String?
+  cliente         Cliente? @relation(fields: [clienteId], references: [id])
+  
+  // Datos de la operación
+  ventaId         String?  // Si viene de una venta
+  venta           Venta?   @relation(fields: [ventaId], references: [id])
+  
+  // Observaciones y seguimiento
+  observaciones   String?
+  fechaCobro      DateTime?
+  fechaRechazo    DateTime?
+  motivoRechazo   String?
+  
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Usuario que registró el cheque
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  @@map("cheques")
+}
+
+// Nuevos enums
+enum TipoDocumento {
+  DNI
+  CUIT
+  PASAPORTE
+  EXTRANJERO
+}
+
+enum CondicionIva {
+  CONSUMIDOR_FINAL
+  RESPONSABLE_INSCRIPTO
+  EXENTO
+  MONOTRIBUTISTA
+}
+
+enum EstadoPresupuesto {
+  PENDIENTE
+  ENVIADO
+  ACEPTADO
+  RECHAZADO
+  VENCIDO
+  CONVERTIDO
+}
+
+enum FrecuenciaFacturacion {
+  MENSUAL
+  BIMENSUAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum Moneda {
+  ARS
+  USD
+  EUR
+}
+
+enum ModalidadPago {
+  MENSUAL
+  QUINCENAL
+  SEMANAL
+}
+
+enum EstadoLiquidacion {
+  PENDIENTE
+  PAGADA
+  ANULADA
+}
+
+enum EstadoCheque {
+  PENDIENTE
+  COBRADO
+  RECHAZADO
+  ANULADO
+  VENCIDO
+}
+
+enum TipoCheque {
+  PROPIO
+  TERCERO
+}
+
+// ============== SISTEMA DE GESTIÓN DE MESAS ==============
+
+// Modelo de Sectores del Local
+model Sector {
+  id              String   @id @default(cuid())
+  nombre          String   @unique
+  descripcion     String?
+  activo          Boolean  @default(true)
+  orden           Int      @default(0) // Para ordenar sectores
+  
+  // Configuración visual
+  color           String?  @default("#4CAF50") // Color del sector
+  icono           String?  // Icono del sector
+  
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Usuario que creó el sector
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  // Relaciones
+  mesas           Mesa[]
+  objetosDecorativos ObjetoDecorativo[]
+  
+  @@map("sectores")
+}
+
+// Modelo de Mesas
+model Mesa {
+  id              String   @id @default(cuid())
+  numero          String   // Número o nombre de la mesa
+  capacidad       Int      @default(4) // Número de personas
+  
+  // Posición en el sector
+  posicionX       Float    @default(0)
+  posicionY       Float    @default(0)
+  
+  // Tamaño personalizable de la mesa (en píxeles)
+  size            Int      @default(50) // Tamaño por defecto 50px x 50px
+  
+  // Estado de la mesa
+  estado          EstadoMesa @default(LIBRE)
+  
+  // Configuración visual
+  forma           FormaMesa @default(REDONDA)
+  color           String?  @default("#4CAF50")
+  
+  // Información adicional
+  observaciones   String?
+  activa          Boolean  @default(true)
+  
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  sectorId        String
+  sector          Sector   @relation(fields: [sectorId], references: [id])
+  
+  // Relación con ventas
+  ventas          Venta[]
+  
+  // Usuario que creó la mesa
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  @@unique([sectorId, numero])
+  @@map("mesas")
+}
+
+// Modelo de Objetos Decorativos/Referencia
+model ObjetoDecorativo {
+  id              String   @id @default(cuid())
+  nombre          String
+  tipo            TipoObjeto @default(DECORATIVO)
+  
+  // Posición en el sector
+  posicionX       Float    @default(0)
+  posicionY       Float    @default(0)
+  ancho           Float    @default(50)
+  alto            Float    @default(50)
+  
+  // Configuración visual
+  color           String?  @default("#9E9E9E")
+  icono           String?  // Icono del objeto
+  forma           String?  @default("rectangle") // rectangle, circle, etc.
+  
+  // Información adicional
+  descripcion     String?
+  activo          Boolean  @default(true)
+  
+  fechaCreacion   DateTime @default(now())
+  fechaActualizacion DateTime @updatedAt
+  
+  // Relaciones
+  sectorId        String
+  sector          Sector   @relation(fields: [sectorId], references: [id])
+  
+  // Usuario que creó el objeto
+  usuarioId       String
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
+  
+  @@map("objetos_decorativos")
+}
+
+// Nuevos enums para el sistema de mesas
+enum EstadoMesa {
+  LIBRE
+  OCUPADA
+  ESPERANDO_PEDIDO
+  CUENTA_PEDIDA
+  RESERVADA
+  FUERA_DE_SERVICIO
+}
+
+enum FormaMesa {
+  REDONDA
+  CUADRADA
+  RECTANGULAR
+  OVALADA
+}
+
+enum TipoObjeto {
+  DECORATIVO
+  BARRA
+  ESCENARIO
+  BANO
+  COCINA
+  ENTRADA
+  SALIDA
+  OTROS
+} 

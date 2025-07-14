@@ -1,0 +1,144 @@
+---
+alwaysApply: true
+---
+🎯 Objetivo General:
+Implementar un sistema robusto de usuarios y roles con control de permisos, identificando acciones por usuario, adaptado a un entorno de múltiples dispositivos conectados en red, donde la información se visualiza en tiempo real desde cualquier terminal conectada.
+
+📋 CRITERIOS OBLIGATORIOS
+
+✅ Gestión de Usuarios y Roles
+Criterio 1: El sistema debe tener al menos 2 roles diferenciados:
+
+Cajero:
+
+Acceso total al sistema:
+
+Abrir y cerrar turnos.
+
+Realizar arqueos.
+
+Operar la caja: ingresos, retiros, ajustes.
+
+Visualizar y configurar correos de reportes.
+
+Cerrar turnos y enviar reportes.
+
+Confirmar o forzar cierres si es autorizado.
+
+Mozo:
+
+Acceso únicamente a:
+
+Seleccionar y abrir mesas.
+
+Seleccionar su identidad de mozo antes de cargar productos.
+
+Cargar productos.
+
+Ver estado de las mesas.
+
+Solicitar pre-cuenta o enviar pedido a cocina/bar.
+
+No puede acceder: a caja, arqueos, apertura/cierre de turnos, ni configuraciones.
+
+✅ Criterio 2: Registro de Usuarios
+Los mozos deben estar predefinidos en la configuración del sistema.
+
+El sistema debe permitir:
+
+Crear, modificar o inactivar usuarios.
+
+Asignar roles al momento de la creación.
+
+✅ Criterio 3: Auditoría y Trazabilidad
+Cada acción sensible debe registrar:
+
+Usuario responsable.
+
+Rol del usuario.
+
+Fecha y hora.
+
+Terminal/dispositivo desde donde se ejecutó.
+
+✅ Criterio 4: Operación en Red
+El sistema debe permitir que todas las computadoras conectadas en la misma red:
+
+Visualicen el estado actualizado de:
+
+Mesas.
+
+Caja.
+
+Turno activo.
+
+Las acciones ejecutadas en un terminal se reflejan en tiempo real en los otros.
+
+✅ Criterio 5: Seguridad
+Control de acceso por usuario y contraseña.
+
+Permitir configurar roles futuros adicionales.
+
+Registro de logs de acceso al sistema.
+
+📦 FLUJO OPERATIVO ESPERADO
+
+Ingreso al sistema:
+
+Login con usuario/contraseña.
+
+Validación de rol.
+
+Interfaz adaptativa según rol:
+
+Cajero: Acceso completo.
+
+Mozo: Acceso restringido solo a gestión de mesas.
+
+Acciones registradas con usuario, rol, terminal, fecha y hora.
+
+Visualización en tiempo real desde cualquier terminal.
+
+Configuración de usuarios centralizada en la terminal de caja.
+
+🔧 FUNCIONES TÉCNICAS CLAVE
+
+loginUsuario(usuario, contraseña)
+
+registrarUsuario(nombre, rol)
+
+modificarUsuario(usuarioId, cambios)
+
+registrarAccion(usuarioId, rol, accion, fechaHora, dispositivo)
+
+sincronizarEstadoGlobal()
+
+⚠️ VALIDACIONES REQUERIDAS
+
+El mozo no debe poder acceder a configuraciones ni caja.
+
+Logs completos para cada acción por usuario.
+
+Registro inmediato de actividad.
+
+Sincronización correcta en red.
+
+🧠 CONTEXTOS Y BENEFICIOS
+
+Control total de la operación por responsabilidad.
+
+Trazabilidad completa de cada movimiento.
+
+Seguridad operativa.
+
+Flexibilidad para crecer en roles o funcionalidades futuras.
+
+🔍 EXTRAS Y UI
+
+UI diferenciada por rol:
+
+Vista del cajero completa.
+
+Vista de mozo simple, directa e intuitiva.
+
+Identificación rápida de quién cargó cada mesa.

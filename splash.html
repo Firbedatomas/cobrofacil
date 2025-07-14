@@ -1,0 +1,54 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body {
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          background: linear-gradient(135deg, #1976d2, #42a5f5);
+          color: white;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .logo {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .title {
+          font-size: 1.5rem;
+          font-weight: 300;
+          margin-bottom: 2rem;
+        }
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid rgba(255, 255, 255, 0.3);
+          border-top: 4px solid white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .status {
+          margin-top: 1rem;
+          font-size: 0.9rem;
+          opacity: 0.8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="logo">$</div>
+      <div class="title">CobroFacil POS</div>
+      <div class="spinner"></div>
+      <div class="status">Iniciando servicios...</div>
+    </body>
+    </html>
+  

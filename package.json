@@ -1,0 +1,112 @@
+{
+  "name": "cobrofacil",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:db\" --names \"🖥️ Backend,⚛️ Frontend,🗄️ Database\" --prefix-colors \"cyan,magenta,yellow\"",
+    "dev:frontend": "vite --port 3002",
+    "dev:backend": "cd backend && npm start",
+    "dev:db": "cd backend && npx prisma studio",
+    "urls": "./mostrar-urls.sh",
+    "start": "vite --port 3003",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron": "NODE_ENV=development electron .",
+    "electron:safe": "NODE_ENV=development electron . --no-sandbox --disable-setuid-sandbox",
+    "electron:dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"wait-on http://localhost:3002 && npm run electron\" --names \"🖥️ Backend,⚛️ Frontend,🖥️ Electron\" --prefix-colors \"cyan,magenta,blue\"",
+    "electron:dev:safe": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"wait-on http://localhost:3002 && npm run electron:safe\" --names \"🖥️ Backend,⚛️ Frontend,🖥️ Electron\" --prefix-colors \"cyan,magenta,blue\"",
+    "electron:build": "npm run build && electron-builder",
+    "electron:pack": "electron-builder --dir",
+    "electron:dist": "npm run build && electron-builder --publish=never",
+    "postinstall": "electron-builder install-app-deps",
+    "generate-icons": "node scripts/generate-icons.js"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "@mui/icons-material": "^6.3.0",
+    "@mui/lab": "^6.0.0-beta.16",
+    "@mui/material": "^6.3.0",
+    "@reduxjs/toolkit": "^2.8.2",
+    "axios": "^1.9.0",
+    "lucide-react": "^0.525.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.0",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "globals": "^15.12.0",
+    "typescript": "~5.6.2",
+    "typescript-eslint": "^8.30.1",
+    "vite": "^6.0.1",
+    "wait-on": "^8.0.3"
+  },
+  "main": "electron-main.cjs",
+  "homepage": "./",
+  "build": {
+    "appId": "com.cobrofacil.pos",
+    "productName": "CobroFacil POS",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.js",
+      "preload.js",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraFiles": [
+      {
+        "from": "public/icons",
+        "to": "icons"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icons/icon-512x512.png",
+      "publisherName": "CobroFacil",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "public/icons/icon-512x512.png",
+      "uninstallerIcon": "public/icons/icon-512x512.png",
+      "installerHeaderIcon": "public/icons/icon-512x512.png",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icons/icon-512x512.png",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icons/icon-512x512.png",
+      "category": "Office"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "cobrofacil",
+      "repo": "cobrofacil-pos"
+    }
+  }
+}

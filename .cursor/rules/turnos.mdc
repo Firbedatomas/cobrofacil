@@ -1,0 +1,202 @@
+---
+alwaysApply: true
+---
+🎯 Objetivo General
+Implementar un sistema completo y robusto de gestión de turnos, caja, mesas y reportes, garantizando:
+
+Operación de mesas solo con turno abierto.
+
+Límite de máximo 3 turnos diarios, sin horarios predefinidos.
+
+Traslado automático del saldo de caja entre turnos, con validación de arqueo previo.
+
+Registro completo de usuarios responsables en todas las acciones.
+
+Cierre de turno bloqueado si:
+
+Existen mesas con ticket o factura emitida sin cobrar.
+
+No se ha realizado el arqueo.
+
+Opción de cierre forzado con autorización especial y registro del motivo.
+
+Generación y envío automático de un reporte consolidado diario, enriquecido con indicadores de gestión.
+
+📋 CRITERIOS OBLIGATORIOS
+✅ Gestión de Turnos
+Máximo 3 turnos diarios.
+
+Cada turno registra:
+
+Número secuencial (Turno 1, 2, 3).
+
+Fecha/hora de apertura.
+
+Usuario que abre.
+
+Fecha/hora de cierre.
+
+Usuario que cierra.
+
+Al abrir turno:
+
+Si el saldo trasladado y el arqueo del turno anterior presentan diferencia:
+
+Alerta al usuario: "Diferencia detectada con arqueo anterior. Validar antes de continuar."
+
+✅ Caja
+Saldo trasladado de forma automática.
+
+Primer turno inicia en $0 por defecto, con advertencia si el saldo es $0.
+
+Todo ingreso, retiro o ajuste:
+
+Registra:
+
+Monto.
+
+Usuario responsable.
+
+Fecha/hora.
+
+Observación/motivo.
+
+✅ Arqueo
+Obligatorio para cerrar turno.
+
+Arqueo registra:
+
+Efectivo contado.
+
+Diferencias contra saldo esperado.
+
+Observaciones.
+
+Usuario responsable.
+
+Resumen previo al cierre:
+
+Total efectivo.
+
+Totales por métodos de pago.
+
+Mesas cobradas/pagadas.
+
+Confirmación manual del cajero.
+
+Registro en logs con timestamp.
+
+No se puede cerrar si hay mesas pendientes de cobro, salvo cierre forzado autorizado.
+
+✅ Cierre Forzado de Turno
+Solo ejecutable por usuarios con permiso especial (ej: Gerente).
+
+Obligatorio registrar:
+
+Motivo del cierre forzado.
+
+Usuario responsable.
+
+Fecha y hora.
+
+Sistema marca en el log y reporte: "Cierre forzado - validar posibles inconsistencias."
+
+✅ Reporte Diario
+Al cerrar el tercer turno:
+
+Genera reporte consolidado con:
+
+Ventas por turno.
+
+Productos vendidos.
+
+Métodos de pago.
+
+Caja total.
+
+Arqueos y diferencias.
+
+Horarios de apertura/cierre.
+
+Usuarios responsables.
+
+KPIs estratégicos:
+
+Ticket promedio por turno.
+
+Tiempo promedio por mesa.
+
+Formas de pago más usadas.
+
+Cantidad de cierres forzados (si existieran).
+
+Envío automático a correos configurados.
+
+📦 FLUJO OPERATIVO
+Abrir Turno:
+
+Validación de diferencia con arqueo previo.
+
+Registro de usuario.
+
+Gestionar Mesas:
+
+Solo con turno abierto.
+
+Visualización de estado en tiempo real.
+
+Cerrar Turno:
+
+Validación de mesas cobradas.
+
+Arqueo obligatorio.
+
+Confirmación de resumen previo.
+
+Opción de cierre forzado (con control de permisos).
+
+Cierre Diario:
+
+Al tercer cierre: generar y enviar reporte diario.
+
+🔧 FUNCIONES CLAVE
+abrirTurno(usuarioId)
+
+cerrarTurno(usuarioId)
+
+validarMesasPendientes()
+
+realizarArqueo(usuarioId, efectivoContado, observaciones)
+
+generarReporteDiario()
+
+forzarCierreTurno(usuarioId, motivo)
+
+configurarCorreosCierre()
+
+⚠️ VALIDACIONES
+Bloqueo de cierre con mesas pendientes.
+
+Validación del arqueo previo al abrir turno.
+
+Logs completos por usuario, dispositivo, fecha/hora.
+
+Permisos diferenciados para cierres forzados.
+
+🧠 BENEFICIOS
+Seguridad financiera y operativa.
+
+Auditoría clara y completa.
+
+Control detallado por usuario.
+
+Indicadores para decisiones estratégicas.
+
+🔍 EXTRAS Y UI
+Visual indicador de turno activo.
+
+Histórico de arqueos y cierres forzados.
+
+Configuración amigable de correos.
+
+Logs accesibles para auditoría interna.

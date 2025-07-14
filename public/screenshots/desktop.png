@@ -1,0 +1,24 @@
+
+  <svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1280" height="720" fill="#f5f5f5"/>
+    <rect x="0" y="0" width="1280" height="64" fill="#1976d2"/>
+    <text x="640" y="40" text-anchor="middle" font-family="Arial" font-size="24" fill="white" font-weight="bold">
+      CobroFacil POS - Sistema de Punto de Venta
+    </text>
+    <rect x="32" y="96" width="300" height="200" rx="8" fill="white" stroke="#e0e0e0"/>
+    <text x="182" y="130" text-anchor="middle" font-family="Arial" font-size="18" fill="#333">
+      Nueva Venta
+    </text>
+    <rect x="364" y="96" width="300" height="200" rx="8" fill="white" stroke="#e0e0e0"/>
+    <text x="514" y="130" text-anchor="middle" font-family="Arial" font-size="18" fill="#333">
+      Productos
+    </text>
+    <rect x="696" y="96" width="300" height="200" rx="8" fill="white" stroke="#e0e0e0"/>
+    <text x="846" y="130" text-anchor="middle" font-family="Arial" font-size="18" fill="#333">
+      Caja
+    </text>
+    <rect x="32" y="328" width="968" height="360" rx="8" fill="white" stroke="#e0e0e0"/>
+    <text x="516" y="368" text-anchor="middle" font-family="Arial" font-size="20" fill="#333">
+      Dashboard - Resumen de Ventas
+    </text>
+  </svg>

@@ -1,0 +1,209 @@
+---
+alwaysApply: true
+---
+🎯 Objetivo General
+Optimizar el sistema de gestión de mesas, cobros, caja y turnos en un restaurante, garantizando:
+
+Flujo rápido y seguro en la facturación y reinicio automático de mesas.
+
+Control financiero con registro de métodos de pago diferenciados.
+
+Gestión de turnos robusta, con arqueo obligatorio, validación de mesas pendientes y continuidad de caja.
+
+Trazabilidad completa de todas las acciones por usuario, terminal y fecha/hora.
+
+📋 CRITERIOS FUNCIONALES COMPLETOS
+✅ Gestión y Cobro de Mesas
+Criterio 1: Al presionar "Cobrar", se abre un modal directo de selección de comprobante (Ticket, Factura A, Factura B) sin pasos intermedios.
+
+Criterio 2: Si el pago es único, al seleccionar el método (Efectivo, Tarjeta, QR, Transferencia), el sistema:
+
+Emite automáticamente el comprobante.
+
+Registra el usuario responsable.
+
+Criterio 3: Para pagos parciales:
+
+Opción "Pago con múltiples métodos".
+
+Distribución de montos validada en tiempo real.
+
+Criterio 4: Tras emisión del comprobante:
+
+La mesa se reinicia automáticamente:
+
+Vacía artículos.
+
+Quita cliente asociado.
+
+Limpia notas y comentarios.
+
+Reinicia tiempo de ocupación.
+
+Cambia estado visual a "Libre" (verde).
+
+Bloqueo en reinicio: Si no se emitió comprobante, el sistema debe bloquear el reinicio.
+
+Confirmación visual: "🎉 Mesa liberada con éxito - Lista para nuevos clientes".
+
+Criterio 5: La venta y su histórico:
+
+Se guardan en el sistema de facturación y caja.
+
+No quedan datos en la vista operativa de mesas.
+
+Criterio 6: Validación en cada apertura de mesa:
+
+validarMesaSinConflictos() asegura que la mesa esté completamente limpia antes de iniciar consumo.
+
+Criterio 7: Historial de cada mesa (persistente pero no visible operativamente):
+
+json
+Copiar
+Editar
+"historial": [
+  {
+    "accion": "cobro",
+    "usuario": "cajero1",
+    "fechaHora": "2025-07-13T14:35:00",
+    "detalle": "Ticket fiscal emitido, pago QR"
+  },
+  {
+    "accion": "reinicio",
+    "usuario": "cajero1",
+    "fechaHora": "2025-07-13T14:37:00",
+    "detalle": "Mesa liberada tras cobro completo"
+  }
+]
+✅ Caja y Métodos de Pago
+Visualización exclusiva del efectivo disponible.
+
+Otros métodos (tarjeta, QR, transferencia) se registran pero no afectan el efectivo.
+
+Fórmula de saldo:
+Saldo anterior + Ingresos en efectivo - Retiros - Gastos ± Ajustes.
+
+Caja inicial en primer turno absoluto:
+
+Si saldo = $0: Advertencia "Caja inicial en $0. ¿Desea agregar dinero ahora o continuar?".
+
+✅ Turnos y Control Diario
+Máximo 3 turnos por día, sin horario fijo.
+
+Operación de mesas bloqueada si el turno no está abierto.
+
+Al abrir turno:
+
+Traslado automático del saldo de caja.
+
+Registro del usuario responsable.
+
+Al cerrar turno:
+
+Validación previa: Si hay mesas en rojo o azul (con ticket sin cobrar), el cierre queda bloqueado.
+
+Mensaje: "No puede cerrar el turno. Existen mesas con consumos o cobros pendientes."
+
+Arqueo obligatorio:
+
+Efectivo contado.
+
+Diferencias.
+
+Observaciones.
+
+Usuario responsable.
+
+Cierre del tercer turno:
+
+Bloqueo de aperturas hasta el día siguiente.
+
+Reinicio automático del contador de turnos.
+
+📦 FLUJO COMPLETO DE OPERACIÓN
+Apertura de Turno:
+
+Asignación de número de turno.
+
+Registro automático de saldo y usuario.
+
+Advertencia si saldo = $0.
+
+Gestión de Mesas:
+
+Selección de mesa.
+
+Cobro rápido con emisión directa o parcial.
+
+Reinicio automático validando que haya comprobante.
+
+Cierre de Turno:
+
+Validación de mesas cobradas.
+
+Arqueo obligatorio.
+
+Registro del arqueo y traslado de saldo.
+
+Cierre Diario:
+
+Al cerrar el tercer turno:
+
+Generar reporte consolidado.
+
+Enviar por correo.
+
+🔧 FUNCIONES TÉCNICAS CLAVE
+reiniciarMesaCompleta(usuarioId)
+
+validarMesaSinConflictos(mesaId)
+
+cerrarTurno(usuarioId)
+
+validarMesasPendientesDeCobro()
+
+realizarArqueo(usuarioId, efectivoContado, observaciones)
+
+generarReporteDiario()
+
+⚠️ VALIDACIONES Y TESTING
+No reiniciar mesa sin comprobante.
+
+No cerrar turno con mesas pendientes.
+
+Validación automática en cada acción crítica.
+
+Logs completos con:
+
+Usuario.
+
+Fecha/hora.
+
+Dispositivo.
+
+📊 KPIs en el Reporte Diario
+Cantidad de mesas cobradas por usuario.
+
+Tiempo promedio de ocupación por mesa.
+
+Ticket promedio por mesa.
+
+Formas de pago más usadas.
+
+🧠 BENEFICIOS
++40% de optimización en el flujo de cobro.
+
+Cierre contable y operativo sin errores.
+
+Control absoluto de caja y mesas.
+
+Indicadores para la administración.
+
+🔍 EXTRAS Y UI
+Confirmación visual en cada reinicio, arqueo y cierre.
+
+Logs y auditoría disponibles por usuario.
+
+Indicador visual del turno activo.
+
+Histórico de arqueos y ventas.

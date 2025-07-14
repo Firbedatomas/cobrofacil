@@ -1,0 +1,161 @@
+---
+alwaysApply: true
+---
+
+🎯 Objetivo General
+Implementar una lógica integral de control de estados de mesas, proceso de cobro, anulación y reemisión, con persistencia de datos, trazabilidad completa y consistencia transaccional para entornos multiusuario y multidispositivo.
+
+📋 CRITERIOS OBLIGATORIOS
+✅ Criterio 1: Estados de la Mesa (3 únicos visuales)
+Cada mesa debe tener un identificador único de máximo 4 caracteres, con las siguientes reglas:
+
+Máximo 2 letras (mayúsculas preferidas).
+
+Máximo 2 números.
+
+Ejemplos válidos: A1, B12, AA12, M05.
+
+Ejemplo de patrón REGEX recomendado:
+^[A-Z]{1,2}[0-9]{1,2}$
+
+Estados visuales:
+
+Verde: Mesa vacía, sin ítems ni facturación.
+
+Rojo: Mesa con ítems cargados o comanda impresa, sin facturación.
+
+Azul: Mesa facturada (ticket fiscal o no fiscal emitido).
+
+✅ Criterio 2: Condiciones para el cambio de estado
+Estado Verde: Solo si:
+
+No hay ítems cargados.
+
+El proceso de cobro está completado (factura emitida y pago registrado).
+
+Estado Rojo:
+
+Cualquier ítem cargado o comanda impresa.
+
+Estado Azul:
+
+Emisión efectiva de un ticket fiscal o no fiscal.
+
+No basta con imprimir la comanda.
+
+✅ Criterio 3: Registro obligatorio de forma de cobro
+Al emitir el ticket se debe registrar:
+
+Forma de pago:
+
+Efectivo
+
+Tarjeta
+
+QR
+
+Transferencia
+
+Combinación parcial
+
+Registro persistente de métodos y montos.
+
+✅ Criterio 4: Lógica de anulación y reemisión
+Si se quiere cambiar la forma de pago post emisión:
+
+Se debe anular obligatoriamente el ticket existente.
+
+La mesa vuelve automáticamente a estado rojo.
+
+Se permite seleccionar nueva forma de pago.
+
+Se emite nuevo ticket.
+
+Durante la anulación:
+
+Activar flag interno: "anulación_en_proceso" para evitar dobles cobros o fallos.
+
+✅ Criterio 5: Reinicio completo de la mesa
+Tras confirmar el cobro y emitir el ticket:
+
+Cambiar estado de mesa a verde.
+
+Vaciar todos los ítems.
+
+Registrar toda la operación en la base de datos.
+
+Persistir la transacción de forma íntegra y completa.
+
+📦 Formato de Implementación y Datos Persistentes
+{
+  "mesa": {
+    "id": "AA12",
+    "estado": "verde | rojo | azul",
+    "items": [...],
+    "factura": {
+      "tipo": "fiscal | no fiscal",
+      "pagos": [
+        {"método": "efectivo | tarjeta | qr | transferencia", "monto": float}
+      ],
+      "anulada": false,
+      "estadoProceso": "normal | anulación_en_proceso"
+    },
+    "historial": [
+      {
+        "accion": "emisión | anulación | reemisión",
+        "usuario": "nombre_usuario",
+        "fechaHora": "ISO8601",
+        "detalle": "detalle contextual"
+      }
+    ]
+  }
+}
+⚠️ Validaciones Requeridas
+El identificador de la mesa debe cumplir el patrón de hasta 2 letras + hasta 2 números.
+
+No se puede emitir ticket sin definir forma de pago.
+
+No se puede pasar a verde sin haber completado cobro.
+
+La anulación debe marcar la factura como anulada y dejarla en histórico.
+
+Validar que el proceso de anulación + reemisión sea atómico, evitando estados inconsistentes.
+
+Registrar siempre:
+
+Usuario responsable.
+
+Fecha/hora.
+
+Terminal de ejecución.
+
+🧠 Contexto Clave
+Fundamental para:
+
+Trazabilidad operativa y contable.
+
+Análisis de ventas por método de pago.
+
+Auditoría de anulaciones y reemisiones.
+
+Previene errores en la caja o dobles cobros.
+
+🔍 Instrucciones Adicionales
+Tono: Técnico y directo para desarrollo.
+
+Priorizar:
+
+Consistencia entre frontend y backend.
+
+Persistencia de todos los movimientos en la base de datos.
+
+Integridad transaccional para evitar desincronizaciones.
+
+Incluir logs completos de:
+
+Emisión.
+
+Anulación.
+
+Reemisión.
+

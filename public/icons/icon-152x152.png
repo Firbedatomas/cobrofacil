@@ -1,0 +1,40 @@
+
+    <svg width="152" height="152" viewBox="0 0 152 152" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#1976d2;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#42a5f5;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#4caf50;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#81c784;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      
+      <!-- Fondo con gradiente -->
+      <rect width="152" height="152" rx="22.8" fill="url(#grad1)"/>
+      
+      <!-- Círculo central -->
+      <circle cx="76" cy="76" r="45.6" fill="url(#grad2)" opacity="0.9"/>
+      
+      <!-- Símbolo de moneda -->
+      <text x="76" y="88.16" 
+            text-anchor="middle" 
+            font-family="Arial, sans-serif" 
+            font-size="38" 
+            font-weight="bold" 
+            fill="white">$</text>
+      
+      <!-- Líneas decorativas -->
+      <rect x="30.400000000000002" y="22.8" width="91.2" height="7.6000000000000005" rx="3.8000000000000003" fill="white" opacity="0.3"/>
+      <rect x="30.400000000000002" y="121.60000000000001" width="91.2" height="7.6000000000000005" rx="3.8000000000000003" fill="white" opacity="0.3"/>
+      
+      <!-- Texto pequeño -->
+      <text x="76" y="129.2" 
+            text-anchor="middle" 
+            font-family="Arial, sans-serif" 
+            font-size="12.16" 
+            fill="white" 
+            opacity="0.8">POS</text>
+    </svg>
+  

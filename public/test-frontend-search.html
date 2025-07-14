@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .search-box {
+            margin: 20px 0;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .product {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .product:hover {
+            background: #f0f0f0;
+        }
+        .logs {
+            margin-top: 20px;
+            padding: 10px;
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 12px;
+            height: 300px;
+            overflow-y: auto;
+            border-radius: 4px;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+        .success {
+            color: #51cf66;
+        }
+        .info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test de Búsqueda de Productos</h1>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Buscar productos... (mínimo 2 caracteres)" />
+        </div>
+        
+        <div class="results" id="results" style="display: none;">
+            <h3>Resultados:</h3>
+            <div id="productList"></div>
+        </div>
+        
+        <div class="logs" id="logs"></div>
+        
+        <button onclick="clearLogs()">Limpiar Logs</button>
+        <button onclick="testLogin()">Test Login</button>
+        <button onclick="testDirectAPI()">Test API Directa</button>
+    </div>
+
+    <script>
+        let authToken = null;
+        let searchTimeout = null;
+        
+        // Función para agregar logs
+        function addLog(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logs.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        // Función para hacer login
+        async function testLogin() {
+            try {
+                addLog('🔐 Iniciando login...', 'info');
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@cobrofacil.io',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.token;
+                    addLog('✅ Login exitoso, token obtenido', 'success');
+                    addLog(`Token: ${authToken.substring(0, 20)}...`, 'info');
+                } else {
+                    addLog(`❌ Error en login: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Error en login: ${error.message}`, 'error');
+            }
+        }
+        
+        // Función para probar API directa
+        async function testDirectAPI() {
+            if (!authToken) {
+                addLog('❌ No hay token, haga login primero', 'error');
+                return;
+            }
+            
+            try {
+                addLog('🔍 Probando API directa...', 'info');
+                
+                const response = await fetch('/api/productos/buscar-rapido?q=ca&limite=5', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog(`✅ API directa funciona: ${data.total} productos encontrados`, 'success');
+                    data.productos.forEach(p => {
+                        addLog(`  - ${p.nombre} ($${p.precio})`, 'info');
+                    });
+                } else {
+                    addLog(`❌ Error en API directa: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Error en API directa: ${error.message}`, 'error');
+            }
+        }
+        
+        // Función para buscar productos
+        async function searchProducts(term) {
+            if (!authToken) {
+                addLog('❌ No hay token, haga login primero', 'error');
+                return;
+            }
+            
+            if (!term || term.length < 2) {
+                document.getElementById('results').style.display = 'none';
+                return;
+            }
+            
+            try {
+                addLog(`🔍 Buscando: "${term}"`, 'info');
+                
+                const response = await fetch(`/api/productos/buscar-rapido?q=${encodeURIComponent(term)}&limite=10`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog(`✅ Búsqueda exitosa: ${data.total} productos encontrados`, 'success');
+                    
+                    const productList = document.getElementById('productList');
+                    productList.innerHTML = '';
+                    
+                    if (data.productos.length > 0) {
+                        data.productos.forEach(producto => {
+                            const productDiv = document.createElement('div');
+                            productDiv.className = 'product';
+                            productDiv.innerHTML = `
+                                <strong>${producto.nombre}</strong> - $${producto.precio}
+                                <br><small>Código: ${producto.codigo} | Stock: ${producto.stock}</small>
+                            `;
+                            productDiv.onclick = () => {
+                                addLog(`📦 Producto seleccionado: ${producto.nombre}`, 'success');
+                            };
+                            productList.appendChild(productDiv);
+                        });
+                        document.getElementById('results').style.display = 'block';
+                    } else {
+                        document.getElementById('results').style.display = 'none';
+                        addLog(`ℹ️ No se encontraron productos para "${term}"`, 'info');
+                    }
+                } else {
+                    addLog(`❌ Error en búsqueda: ${response.status}`, 'error');
+                    const errorText = await response.text();
+                    addLog(`Error details: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Error en búsqueda: ${error.message}`, 'error');
+            }
+        }
+        
+        // Event listener para el input de búsqueda
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const term = e.target.value;
+            
+            // Limpiar timeout anterior
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            // Crear nuevo timeout
+            searchTimeout = setTimeout(() => {
+                searchProducts(term);
+            }, 300);
+        });
+        
+        // Inicializar
+        addLog('🚀 Test de búsqueda iniciado', 'info');
+        addLog('1. Haga click en "Test Login" para autenticarse', 'info');
+        addLog('2. Luego escriba en el campo de búsqueda', 'info');
+        
+        // Auto-login para conveniencia
+        setTimeout(() => {
+            testLogin();
+        }, 1000);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Uploads y certificados (NUNCA subir certificados al repositorio)
+uploads/
+certificados/
+
+# Archivos temporales
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Prisma
+prisma/migrations/
+!prisma/migrations/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock 
