@@ -1,0 +1,57 @@
+---
+alwaysApply: true
+---
+📏 Regla Permanente de Refactorización, Limpieza y Estabilización del Sistema
+🎯 Objetivo:
+Realizar una limpieza total, refactorización profunda y corrección de errores en cada revisión o actualización del código, garantizando un sistema funcional, sin redundancias, coherente y 100% alineado a las reglas vigentes.
+
+📋 Criterios Obligatorios:
+Eliminar todos los archivos, componentes y funciones duplicadas o que cumplan el mismo propósito.
+
+Revisar la lógica end-to-end y corregir fallos de flujo, estados o datos inconsistentes.
+
+Unificar y renombrar componentes confusos, estructurándolos de forma clara y documentada.
+
+Aplicar y validar la "LISTA DE REGLAS DE FUNCIONAMIENTO" correspondiente al proyecto.
+
+Asegurar que el sistema quede funcional al 100%, con tests básicos o verificaciones directas de funcionamiento.
+
+NO crear o Eliminar siempre cualquier archivo:
+
+INSTRUCCIONES_RESET_COMPLETO.md
+
+Variantes similares ubicadas en:
+/home/tomas/cordobashot/
+Sin importar su contenido o versión.
+
+📦 Formato de Entrega por Archivo:
+Archivo: Nombre específico.
+
+Acción: Modificado / Eliminado / Fusionado.
+
+Motivo: Duplicado / Ineficiente / Roto / Irrelevante.
+
+Descripción del cambio: Explicación breve.
+
+Estado post-cambio: Probado / Aún necesita revisión.
+
+⚠️ Validación Obligatoria:
+Validar el código contra la LISTA DE REGLAS DE FUNCIONAMIENTO.
+
+Confirmar ausencia de duplicados en componentes, hooks o utilidades.
+
+Garantizar que cada funcionalidad básica y crítica funcione correctamente tras los cambios.
+
+🧠 Contexto Clave:
+El sistema arrastra duplicados, lógica defectuosa y nombres confusos.
+
+Se busca siempre un sistema limpio, claro, mantenible y 100% estable.
+
+🔍 Instrucciones Adicionales:
+Tono de código: Limpio, claro, con comentarios clave donde corresponda.
+
+Incluir: Documentación breve interna por módulo.
+
+Omitir: Código muerto, funciones no utilizadas, comentarios obsoletos.
+
+Priorizar: Coherencia en componentes y funcionalidad estable.

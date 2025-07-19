@@ -17,21 +17,19 @@ import {
   Alert,
   Snackbar,
   Chip,
-  Divider
+  Divider,
+  Breadcrumbs
 } from '@mui/material';
 import {
   Search,
-  ShoppingCart,
   Grid3x3,
   Timer,
   Close as X,
   Add,
   Remove,
-  Delete,
-  Send,
-  Receipt,
   Person,
-  Edit
+  Group,
+  NavigateNext
 } from '@mui/icons-material';
 import { toastService } from '../../../services/toastService';
 import { ventasActivasService } from '../../../services/ventasActivasService';
@@ -44,6 +42,16 @@ import ModalDescuento from './ModalDescuento';
 import ModalDivisionCuenta from './ModalDivisionCuenta';
 import ModalPagoParcial from './ModalPagoParcial';
 import ModalTransferir from './ModalTransferir';
+import api from '../../../services/api';
+
+// Interfaces para mozo
+interface Mozo {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  activo: boolean;
+}
 
 // Interfaces
 interface VentaActivaPersistente {
@@ -101,6 +109,7 @@ interface VentaIntegralV2Props {
   mesasDisponibles?: Mesa[];
   onValidarEstado?: () => Promise<void>;
   onValidarMesasGlobal?: (mesaIds: string[]) => Promise<void>;
+  usuarioActual?: any;
 }
 
 const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
@@ -110,12 +119,20 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
   onCambiarEstado,
   mesasDisponibles = [],
   onValidarEstado,
-  onValidarMesasGlobal
+  onValidarMesasGlobal,
+  usuarioActual
 }) => {
-  // Estados principales
+  // ✅ FLUJO MOZO->VENTA: Estados principales
+  const [panelVentasActivo, setPanelVentasActivo] = useState(false);
+  const [mozoSeleccionado, setMozoSeleccionado] = useState<Mozo | null>(null);
+  const [mozosDisponibles, setMozosDisponibles] = useState<Mozo[]>([]);
+  const [searchTermMozo, setSearchTermMozo] = useState('');
+  const [loadingMozos, setLoadingMozos] = useState(false);
+  
+  // Estados principales de ventas
   const [ventaActiva, setVentaActiva] = useState<VentaActiva | null>(null);
   
-  // Estados de búsqueda
+  // Estados de búsqueda de productos
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [resultadosBusqueda, setResultadosBusqueda] = useState<ProductoCompleto[]>([]);
   const [buscandoProductos, setBuscandoProductos] = useState(false);
@@ -154,8 +171,124 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
   
   // Handlers para las herramientas
   const handlers = useVentaHandlers();
-  
-  // Funciones wrapper para los botones del toolbar
+
+  // ✅ FLUJO MOZO->VENTA: Verificar mozo asignado al abrir modal
+  useEffect(() => {
+    if (mesa && isOpen) {
+      verificarMozoAsignado();
+    }
+  }, [mesa, isOpen]);
+
+  const verificarMozoAsignado = async () => {
+    if (!mesa) return;
+    
+    try {
+      const { default: asignacionesMozoService } = await import('../../../services/asignacionesMozoService');
+      const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesa.id);
+      
+      if (mozoAsignado) {
+        // Ya hay mozo asignado → abrir panel de ventas directamente
+        console.log('✅ Mesa ya tiene mozo asignado:', mozoAsignado.nombre);
+        setMozoSeleccionado({
+          id: mozoAsignado.id,
+          nombre: mozoAsignado.nombre,
+          apellido: mozoAsignado.apellido || '',
+          email: mozoAsignado.email || '',
+          activo: true
+        });
+        setPanelVentasActivo(true);
+        inicializarVenta();
+        obtenerProductosRecomendados();
+      } else {
+        // No hay mozo → mostrar selector de mozo
+        console.log('🎯 Mesa sin mozo, mostrando selector');
+        setPanelVentasActivo(false);
+        cargarMozos();
+      }
+    } catch (error) {
+      console.error('❌ Error verificando mozo:', error);
+      // En caso de error, mostrar selector de mozo
+      setPanelVentasActivo(false);
+      cargarMozos();
+    }
+  };
+
+  const cargarMozos = async () => {
+    setLoadingMozos(true);
+    try {
+      const response = await api.get('/usuarios?rol=MOZO&activo=true');
+      if (response.data && Array.isArray(response.data.usuarios)) {
+        setMozosDisponibles(response.data.usuarios);
+      }
+    } catch (error) {
+      console.error('Error cargando mozos:', error);
+      toastService.error('Error al cargar mozos');
+    } finally {
+      setLoadingMozos(false);
+    }
+  };
+
+  // ✅ FLUJO MOZO->VENTA: Seleccionar mozo y transicionar al panel de ventas
+  const handleSeleccionarMozo = async (mozo: Mozo) => {
+    try {
+      if (!mesa) throw new Error('No hay mesa seleccionada');
+
+      console.log('🚀 Asignando mozo:', mozo.nombre);
+      
+      const { default: asignacionesMozoService } = await import('../../../services/asignacionesMozoService');
+      
+      await asignacionesMozoService.asignarMozo(
+        mesa.id,
+        mozo.id,
+        'Asignación desde modal integrado'
+      );
+
+      // ✅ CRITERIO CRÍTICO: NO cerrar modal, transformar contenido
+      setMozoSeleccionado(mozo);
+      setPanelVentasActivo(true);
+      
+      // Inicializar venta y productos
+      inicializarVenta();
+      obtenerProductosRecomendados();
+      
+      toastService.success(`Mozo asignado: ${mozo.nombre} ${mozo.apellido}`);
+      
+    } catch (error) {
+      console.error('❌ Error asignando mozo:', error);
+      toastService.error('Error al asignar mozo');
+    }
+  };
+
+  const mozosFiltrados = mozosDisponibles.filter(mozo => 
+    `${mozo.nombre} ${mozo.apellido}`.toLowerCase().includes(searchTermMozo.toLowerCase())
+  );
+
+  // ✅ FACTURACIÓN SIMPLIFICADA: Botones directos según regla sistemafacturacion
+  const handleFacturacionDirecta = async (tipoComprobante: 'TICKET' | 'FACTURA_A' | 'FACTURA_B', metodoPago: string) => {
+    if (!ventaActiva) return;
+
+    try {
+      console.log('🎫 Facturación directa:', { tipoComprobante, metodoPago });
+      
+      const formasPago = [{ metodo: metodoPago, monto: ventaActiva.total }];
+      
+      const resultado = await handlers.handleFacturacion(
+        ventaActiva.id, 
+        tipoComprobante.toLowerCase(), 
+        undefined,
+        formasPago
+      );
+
+      if (resultado) {
+        toastService.success(`${tipoComprobante} emitido correctamente`);
+        onClose(); // Cerrar modal al completar facturación
+      }
+    } catch (error) {
+      console.error('❌ Error en facturación directa:', error);
+      toastService.error('Error al procesar facturación');
+    }
+  };
+
   const handleEspecificaciones = (itemId?: string, itemNombre?: string, especificacionesIniciales?: string) => {
     if (!itemId) {
       toastService.warning('Seleccione un ítem para agregar especificaciones');
@@ -455,31 +588,41 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
     }
   };
 
+  // ✅ CORREGIDO: Función optimizada para agregar productos
   const agregarProducto = async (producto: ProductoCompleto) => {
     if (!mesa) {
       mostrarNotificacion('Error: No hay mesa seleccionada', 'error');
       return;
     }
 
-    // ✅ CRITERIO 4: Verificar que hay mozo asignado antes de permitir venta
-    try {
-      const { default: asignacionesMozoService } = await import('../../../services/asignacionesMozoService');
-      const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesa.id);
-      
-      if (!mozoAsignado) {
-        mostrarNotificacion('Error: Debe asignar un mozo antes de iniciar la venta', 'error');
-        console.error('❌ Intento de venta sin mozo asignado - Mesa:', mesa.numero);
+    console.log('🛒 Intentando agregar producto:', producto.nombre, 'a mesa:', mesa.numero);
+
+    // ✅ OPTIMIZACIÓN: Si ya tenemos mozoSeleccionado, no hacer verificación extra
+    if (!mozoSeleccionado) {
+      console.log('⚠️ No hay mozo seleccionado en el estado local, verificando en BD...');
+      try {
+        const { default: asignacionesMozoService } = await import('../../../services/asignacionesMozoService');
+        const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesa.id);
+        
+        if (!mozoAsignado) {
+          mostrarNotificacion('Error: Debe asignar un mozo antes de iniciar la venta', 'error');
+          console.error('❌ Intento de venta sin mozo asignado - Mesa:', mesa.numero);
+          return;
+        }
+        
+        console.log('✅ Mozo verificado para venta:', mozoAsignado.nombre);
+      } catch (error) {
+        console.error('❌ Error verificando mozo:', error);
+        mostrarNotificacion('Error: No se pudo verificar el mozo asignado', 'error');
         return;
       }
-      
-      console.log('✅ Mozo verificado para venta:', mozoAsignado.nombre);
-    } catch (error) {
-      console.error('❌ Error verificando mozo:', error);
-      mostrarNotificacion('Error: No se pudo verificar el mozo asignado', 'error');
-      return;
+    } else {
+      console.log('✅ Mozo ya seleccionado:', mozoSeleccionado.nombre);
     }
 
     try {
+      console.log('📤 Enviando producto al servicio de ventas...');
+      
       const ventaActualizada = await ventasActivasService.agregarProducto(
         mesa.id,
         {
@@ -491,6 +634,8 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
         1
       );
 
+      console.log('📥 Respuesta del servicio:', ventaActualizada);
+      
       const ventaLocal = adaptarVentaPersistentaALocal(ventaActualizada);
       setVentaActiva(ventaLocal);
 
@@ -499,6 +644,7 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
         toastService.success(`Mesa ${mesa.numero} ocupada - Venta iniciada`);
       }
 
+      // Limpiar búsqueda
       setTerminoBusqueda('');
       setResultadosBusqueda([]);
       setIndiceSeleccionado(0);
@@ -509,9 +655,21 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
       }
       
       toastService.success(`${producto.nombre} agregado a la venta`);
+      console.log('✅ Producto agregado exitosamente');
+      
     } catch (error: any) {
       console.error('❌ Error agregando producto:', error);
-      mostrarNotificacion('Error al agregar el producto', 'error');
+      
+      // Mensajes de error más específicos
+      if (error.response?.status === 404) {
+        mostrarNotificacion('Error: Producto no encontrado', 'error');
+      } else if (error.response?.status === 401) {
+        mostrarNotificacion('Error: No autorizado', 'error');
+      } else if (error.message?.includes('mozo')) {
+        mostrarNotificacion('Error: Problema con asignación de mozo', 'error');
+      } else {
+        mostrarNotificacion(`Error al agregar producto: ${error.message || 'Error desconocido'}`, 'error');
+      }
     }
   };
 
@@ -588,45 +746,49 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
     }
   };
 
-  // Función para obtener productos recomendados
+  // ✅ CORREGIDO: Función para obtener productos recomendados
   const obtenerProductosRecomendados = async () => {
     setCargandoRecomendados(true);
     try {
-      // Obtener los primeros 6 productos como recomendados (en una implementación real esto sería productos más vendidos)
-      const productos = await productosService.buscarProductos({ 
+      console.log('🔍 Cargando productos recomendados...');
+      
+      // Obtener los primeros 6 productos activos
+      const resultado = await productosService.buscarProductos({ 
         limite: 6, 
         activo: true 
       });
       
-      // Adaptar los productos del servicio al tipo esperado
-      const productosAdaptados = (productos.productos || []).map(producto => ({
-        ...producto,
-        categoria: typeof producto.categoria === 'object' ? producto.categoria.nombre : producto.categoria,
-        descripcion: producto.descripcion || '',
-        costo: 0,
-        stock: 0,
-        stockMinimo: 0,
-        fechaCreacion: new Date().toISOString(),
-        fechaActualizacion: new Date().toISOString()
-      }));
+      console.log('📦 Resultado de productosService:', resultado);
       
+      // Verificar que la respuesta tenga el formato esperado
+      if (!resultado || !resultado.productos) {
+        console.warn('⚠️ Formato de respuesta inesperado:', resultado);
+        setProductosRecomendados([]);
+        return;
+      }
+      
+             // Adaptar los productos del servicio al tipo esperado
+       const productosAdaptados = resultado.productos.map(producto => ({
+         ...producto,
+         categoria: typeof producto.categoria === 'object' ? producto.categoria.nombre : (producto.categoria || 'Sin categoría'),
+         descripcion: producto.descripcion || '',
+         fechaCreacion: producto.fechaCreacion || new Date().toISOString(),
+         fechaActualizacion: producto.fechaActualizacion || new Date().toISOString()
+       }));
+      
+      console.log('✅ Productos adaptados:', productosAdaptados.length, productosAdaptados);
       setProductosRecomendados(productosAdaptados);
+      
     } catch (error) {
       console.error('❌ Error cargando productos recomendados:', error);
       toastService.error('Error al cargar productos recomendados');
+      setProductosRecomendados([]); // Evitar estado indefinido
     } finally {
       setCargandoRecomendados(false);
     }
   };
 
   // Effects
-  useEffect(() => {
-    if (mesa && isOpen) {
-      inicializarVenta();
-      obtenerProductosRecomendados();
-    }
-  }, [mesa, isOpen]);
-
   useEffect(() => {
     if (terminoBusqueda.length >= 2) {
       buscarProductos();
@@ -654,49 +816,129 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
           }
         }}
       >
-        {false ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress />
+        {/* Header con breadcrumb */}
+        <Box sx={{ 
+          p: 2, 
+          bgcolor: 'primary.main', 
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          borderBottom: '2px solid rgba(255,255,255,0.1)'
+        }}>
+          <Grid container alignItems="center" spacing={2}>
+            <Grid item xs>
+              <Typography variant="h6" sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                fontWeight: 'bold'
+              }}>
+                <Grid3x3 fontSize="small" />
+                Mesa {mesa.numero}
+              </Typography>
+              
+              {/* Breadcrumb para mostrar el flujo */}
+              <Breadcrumbs 
+                separator={<NavigateNext fontSize="small" />}
+                sx={{ mt: 0.5, color: 'rgba(255,255,255,0.8)' }}
+              >
+                <Typography variant="caption" color="inherit">
+                  Mesa
+                </Typography>
+                {mozoSeleccionado && (
+                  <Typography variant="caption" color="inherit">
+                    Mozo: {mozoSeleccionado.nombre}
+                  </Typography>
+                )}
+                {panelVentasActivo && (
+                  <Typography variant="caption" color="inherit">
+                    Venta Activa
+                  </Typography>
+                )}
+              </Breadcrumbs>
+            </Grid>
+            <Grid item>
+              {panelVentasActivo && (
+                <Chip 
+                  label={tiempoTranscurrido || 'Nueva'}
+                  color="secondary"
+                  variant="filled"
+                  icon={<Timer fontSize="small" />}
+                />
+              )}
+            </Grid>
+            <Grid item>
+              <IconButton onClick={onClose} sx={{ color: 'white' }}>
+                <X fontSize="small" />
+              </IconButton>
+            </Grid>
+          </Grid>
+        </Box>
+
+        {/* ✅ RENDERIZADO CONDICIONAL: Selector de mozo O Panel de ventas */}
+        {!panelVentasActivo ? (
+          // SELECTOR DE MOZO
+          <Box sx={{ flex: 1, p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Group />
+              Seleccionar Mozo para Mesa {mesa.numero}
+            </Typography>
+
+            <TextField
+              fullWidth
+              placeholder="Buscar mozo..."
+              value={searchTermMozo}
+              onChange={(e) => setSearchTermMozo(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+
+            {loadingMozos ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <List>
+                {/* Usuario actual como primera opción */}
+                {usuarioActual && (
+                  <ListItem disablePadding sx={{ mb: 1 }}>
+                    <Paper elevation={2} sx={{ width: '100%', bgcolor: 'primary.light' }}>
+                      <ListItemButton onClick={() => handleSeleccionarMozo({
+                        id: usuarioActual.id,
+                        nombre: usuarioActual.nombre,
+                        apellido: usuarioActual.apellido || '',
+                        email: usuarioActual.email,
+                        activo: true
+                      })}>
+                        <Person sx={{ mr: 2, color: 'primary.main' }} />
+                        <ListItemText
+                          primary={`${usuarioActual.nombre} (Yo mismo)`}
+                          secondary={usuarioActual.email}
+                        />
+                      </ListItemButton>
+                    </Paper>
+                  </ListItem>
+                )}
+
+                {/* Lista de mozos */}
+                {mozosFiltrados.map((mozo) => (
+                  <ListItem key={mozo.id} disablePadding sx={{ mb: 1 }}>
+                    <Paper elevation={1} sx={{ width: '100%' }}>
+                      <ListItemButton onClick={() => handleSeleccionarMozo(mozo)}>
+                        <Person sx={{ mr: 2 }} />
+                        <ListItemText
+                          primary={`${mozo.nombre} ${mozo.apellido}`}
+                          secondary={mozo.email}
+                        />
+                      </ListItemButton>
+                    </Paper>
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </Box>
         ) : (
+          // PANEL DE VENTAS (contenido simplificado)
           <>
-            {/* Header */}
-            <Box sx={{ 
-              p: 2, 
-              bgcolor: 'primary.main', 
-              color: 'white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              borderBottom: '2px solid rgba(255,255,255,0.1)'
-            }}>
-              <Grid container alignItems="center" spacing={2}>
-                <Grid item xs>
-                  <Typography variant="h6" sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 1,
-                    fontWeight: 'bold'
-                  }}>
-                    <Grid3x3 fontSize="small" />
-                    Mesa {mesa.numero}
-                  </Typography>
-                </Grid>
-                <Grid item>
-                  <Chip 
-                    label={tiempoTranscurrido || 'Nueva'}
-                    color="secondary"
-                    variant="filled"
-                    icon={<Timer fontSize="small" />}
-                  />
-                </Grid>
-                <Grid item>
-                  <IconButton onClick={onClose} sx={{ color: 'white' }}>
-                    <X fontSize="small" />
-                  </IconButton>
-                </Grid>
-              </Grid>
-            </Box>
-
-            {/* Buscador */}
+            {/* Buscador de productos */}
             <Box sx={{ p: 2 }}>
               <TextField
                 fullWidth
@@ -709,31 +951,11 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
                 }}
               />
 
-              {resultadosBusqueda.length > 0 && (
-                <Paper elevation={2} sx={{ maxHeight: 300, overflowY: 'auto', mt: 1 }}>
-                  <List dense>
-                    {resultadosBusqueda.map((producto, index) => (
-                      <ListItem key={producto.id} disablePadding>
-                        <ListItemButton 
-                          selected={index === indiceSeleccionado}
-                          onClick={() => agregarProducto(producto)}
-                        >
-                          <ListItemText
-                            primary={producto.nombre}
-                            secondary={`${producto.codigo} - $${producto.precio}`}
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Paper>
-              )}
-
-              {/* Productos Recomendados */}
+              {/* Productos recomendados */}
               {productosRecomendados.length > 0 && !terminoBusqueda && (
                 <>
                   <Divider sx={{ my: 2 }} />
-                  <Box className="recommended-products" sx={{ mt: 1 }}>
+                  <Box sx={{ mt: 1 }}>
                     <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', fontWeight: 'medium' }}>
                       📍 Productos Recomendados
                     </Typography>
@@ -741,7 +963,6 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
                       {productosRecomendados.map((producto) => (
                         <Grid item xs={4} key={producto.id}>
                           <Paper 
-                            className="recommended-product"
                             elevation={1} 
                             sx={{ 
                               p: 0.5, 
@@ -786,99 +1007,68 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
                         </Grid>
                       ))}
                     </Grid>
-                    {cargandoRecomendados && (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-                        <CircularProgress size={20} />
-                      </Box>
-                    )}
                   </Box>
                 </>
               )}
             </Box>
 
-            {/* Lista de items */}
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-              {!ventaActiva || ventaActiva.items.length === 0 ? (
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  height: '100%'
-                }}>
-                  <ShoppingCart fontSize="large" sx={{ color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    No hay productos en la venta
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Busca y agrega productos para comenzar
-                  </Typography>
-                </Box>
-              ) : (
-                <List>
+            {/* Lista de productos en la venta */}
+            {ventaActiva && ventaActiva.items.length > 0 && (
+              <Box sx={{ px: 2, py: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
+                  🛒 Productos seleccionados ({ventaActiva.items.length})
+                </Typography>
+                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
                   {ventaActiva.items.map((item) => (
-                    <Paper key={item.id} elevation={1} sx={{ mb: 2 }}>
-                      <ListItem>
-                        <Box sx={{ flexGrow: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                            {item.producto.nombre}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Código: {item.producto.codigo} | Precio: ${item.precio}
-                          </Typography>
-                          {item.especificaciones && (
-                            <Typography variant="body2" color="primary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
-                              📝 {item.especificaciones}
-                            </Typography>
-                          )}
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => modificarCantidad(item.id, item.cantidad - 1)}
-                            color="primary"
-                          >
-                            <Remove fontSize="small" />
-                          </IconButton>
-                          <Typography variant="body1" sx={{ minWidth: 30, textAlign: 'center' }}>
-                            {item.cantidad}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => modificarCantidad(item.id, item.cantidad + 1)}
-                            color="primary"
-                          >
-                            <Add fontSize="small" />
-                          </IconButton>
-                          <Typography variant="body1" sx={{ ml: 1, minWidth: 60, textAlign: 'right' }}>
-                            ${item.subtotal}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEspecificaciones(item.id, item.producto.nombre, item.especificaciones)}
-                            color="primary"
-                            title="Agregar especificaciones"
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => eliminarProducto(item.id)}
-                            color="error"
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </ListItem>
+                    <Paper 
+                      key={item.id}
+                      elevation={1}
+                      sx={{ 
+                        p: 1.5,
+                        mb: 1,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderRadius: 2
+                      }}
+                    >
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                          {item.producto.nombre}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          ${item.precio} × {item.cantidad} = ${item.subtotal}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => modificarCantidad(item.id, item.cantidad - 1)}
+                          disabled={item.cantidad <= 1}
+                          sx={{ width: 28, height: 28 }}
+                        >
+                          <Remove fontSize="small" />
+                        </IconButton>
+                        <Typography variant="body2" sx={{ minWidth: 20, textAlign: 'center', fontWeight: 'bold' }}>
+                          {item.cantidad}
+                        </Typography>
+                        <IconButton 
+                          size="small"
+                          onClick={() => modificarCantidad(item.id, item.cantidad + 1)}
+                          sx={{ width: 28, height: 28 }}
+                        >
+                          <Add fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Paper>
                   ))}
-                </List>
-              )}
-            </Box>
+                </Box>
+              </Box>
+            )}
 
-            {/* Total y Acciones */}
+            {/* Total y Facturación Directa */}
             {ventaActiva && (
-              <Box sx={{ bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
+              <Box sx={{ bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider', mt: 'auto' }}>
                 {/* Total */}
                 <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                   <Grid container alignItems="center" justifyContent="space-between">
@@ -893,147 +1083,75 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
                   </Grid>
                 </Box>
 
-                {/* Toolbar de herramientas */}
-                <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
+                {/* ✅ FACTURACIÓN SIMPLIFICADA: Botones directos por forma de pago */}
+                <Box sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    🎫 FACTURACIÓN RÁPIDA
+                  </Typography>
                   <Grid container spacing={1}>
+                    {/* Efectivo */}
                     <Grid item xs={4}>
                       <Button
                         fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleEspecificaciones()}
-                        title="Agregar especificaciones"
+                        variant="contained"
+                        color="success"
+                        onClick={() => handleFacturacionDirecta('TICKET', 'efectivo')}
                       >
-                        ESPECIFIC.
+                        💵 EFECTIVO
                       </Button>
                     </Grid>
+                    {/* Tarjeta */}
                     <Grid item xs={4}>
                       <Button
                         fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleIncluir()}
-                        title="Enfocar barra de búsqueda"
+                        variant="contained"
+                        color="info"
+                        onClick={() => handleFacturacionDirecta('TICKET', 'tarjeta')}
                       >
-                        INCLUIR
+                        💳 TARJETA
                       </Button>
                     </Grid>
+                    {/* QR */}
                     <Grid item xs={4}>
                       <Button
                         fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleFusion()}
-                        title="Fusionar cuentas"
+                        variant="contained"
+                        color="warning"
+                        onClick={() => handleFacturacionDirecta('TICKET', 'qr')}
                       >
-                        FUSIÓN
+                        📱 QR
                       </Button>
                     </Grid>
+                    {/* Transferencia */}
                     <Grid item xs={4}>
                       <Button
                         fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handlePuntos()}
-                        title="Sistema de puntos"
+                        variant="contained"
+                        color="secondary"
+                        onClick={() => handleFacturacionDirecta('TICKET', 'transferencia')}
                       >
-                        PUNTOS
+                        🏦 TRANSFER
                       </Button>
                     </Grid>
-                    <Grid item xs={4}>
+                    {/* Pago múltiple */}
+                    <Grid item xs={8}>
                       <Button
                         fullWidth
-                        size="small"
                         variant="outlined"
-                        onClick={() => handleTicket()}
-                        title="Generar ticket"
+                        onClick={() => setModalPagoParcial({ open: true })}
                       >
-                        TICKET
-                      </Button>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleFacturaA()}
-                        title="Generar factura A"
-                      >
-                        FAC. A
-                      </Button>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleFacturaB()}
-                        title="Generar factura B"
-                      >
-                        FAC. B
-                      </Button>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleDescuento()}
-                        title="Aplicar descuento"
-                      >
-                        DESCUENTO
-                      </Button>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleDividirCuenta()}
-                        title="Dividir cuenta"
-                      >
-                        CUENTA
-                      </Button>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleRecParcial()}
-                        title="Recaudación parcial"
-                      >
-                        REC. PARCIAL
-                      </Button>
-                    </Grid>
-                    <Grid item xs={4}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleTransferir()}
-                        title="Transferir mesa"
-                      >
-                        TRANSFERIR
+                        🔄 PAGO MÚLTIPLE
                       </Button>
                     </Grid>
                   </Grid>
                 </Box>
-
-                {/* Estado de la venta */}
-                {ventaActiva.estado !== 'activa' && (
-                  <Box sx={{ p: 1, bgcolor: 'primary.light', textAlign: 'center' }}>
-                    <Typography variant="body2" color="primary.contrastText">
-                      {ventaActiva.estado === 'enviada' ? '📨 Comanda enviada a cocina' : '🧾 Cuenta solicitada'}
-                    </Typography>
-                  </Box>
-                )}
               </Box>
             )}
           </>
         )}
       </Drawer>
 
+      {/* Snackbar y modales existentes */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -1043,6 +1161,40 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Modal de pago múltiple */}
+      <ModalPagoParcial
+        open={modalPagoParcial.open}
+        onClose={() => setModalPagoParcial({ open: false })}
+        onRegistrarPago={async (pagos: any[]) => {
+          try {
+            if (ventaActiva) {
+              const formasPago = pagos.map(pago => ({
+                metodo: pago.metodo,
+                monto: pago.monto
+              }));
+
+              const resultado = await handlers.handleFacturacion(
+                ventaActiva.id, 
+                'ticket',
+                undefined,
+                formasPago
+              );
+
+              if (resultado) {
+                toastService.success('Ticket emitido correctamente');
+                setModalPagoParcial({ open: false });
+                onClose();
+              }
+            }
+          } catch (error) {
+            console.error('Error en pago múltiple:', error);
+            toastService.error('Error al procesar pago múltiple');
+          }
+        }}
+        totalVenta={ventaActiva?.total || 0}
+        titulo="Pago con Múltiples Métodos"
+      />
 
       {/* Modal de especificaciones */}
       <ModalEspecificaciones

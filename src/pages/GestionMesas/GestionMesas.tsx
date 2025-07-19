@@ -26,7 +26,6 @@ import FormularioSector from './components/FormularioSector';
 import FormularioMesa from './components/FormularioMesa';
 import FormularioObjetoDecorativo from './components/FormularioObjetoDecorativo';
 import VentaIntegralV2 from './components/VentaIntegralV2';
-import SeleccionMozo from './components/SeleccionMozo';
 import AdvertenciaAfip from '../../components/AdvertenciaAfip';
 import BloqueoTurno from '../../components/ProtectedRoute'; // Renombrado a BloqueoTurno
 
@@ -35,14 +34,7 @@ import { sectoresApi, mesasApi } from '../../services/mesasApi';
 import { EstadoMesa } from '../../types/mesas';
 import type { Sector, Mesa } from '../../types/mesas';
 
-// Interfaces para mozos
-interface Mozo {
-  id: string;
-  nombre: string;
-  apellido: string;
-  email: string;
-  activo: boolean;
-}
+
 
 const GestionMesas: React.FC = () => {
   const theme = useTheme();
@@ -62,11 +54,9 @@ const GestionMesas: React.FC = () => {
   const [sectorEditando, setSectorEditando] = useState<Sector | null>(null);
   const [mesaEditando, setMesaEditando] = useState<Mesa | null>(null);
   
-  // Estados para gestión de ventas y mozos
+  // Estados para gestión de ventas
   const [mesaSeleccionada, setMesaSeleccionada] = useState<Mesa | null>(null);
   const [panelVentaMesa, setPanelVentaMesa] = useState(false);
-  const [mostrarSeleccionMozo, setMostrarSeleccionMozo] = useState(false);
-  const [mozoSeleccionado, setMozoSeleccionado] = useState<Mozo | null>(null);
   const [usuarioActual, setUsuarioActual] = useState<any>(null);
   
   // Estados para notificaciones
@@ -485,37 +475,11 @@ const GestionMesas: React.FC = () => {
     setSectorActivo(sectorId);
   };
 
-  const handleGestionarMesa = async (mesa: Mesa) => {
+  // ✅ SIMPLIFICADO: El modal integrado maneja toda la lógica de mozo y ventas
+  const handleGestionarMesa = (mesa: Mesa) => {
     setMesaSeleccionada(mesa);
-    
-    try {
-      // ✅ NUEVO SISTEMA: Verificar si ya hay un mozo asignado a esta mesa
-      const { default: asignacionesMozoService } = await import('../../services/asignacionesMozoService');
-      const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesa.id);
-      
-      if (mozoAsignado) {
-        // ✅ YA HAY MOZO ASIGNADO - Abrir directamente el modal de ventas
-        console.log('🎯 Mesa ya tiene mozo asignado:', `${mozoAsignado.nombre} ${mozoAsignado.apellido}`);
-        console.log('🚀 Abriendo modal de ventas directamente...');
-        
-        setPanelVentaMesa(true);
-        
-        mostrarNotificacion(
-          `Mesa ${mesa.numero} - Mozo: ${mozoAsignado.nombre} ${mozoAsignado.apellido}`,
-          'info'
-        );
-        
-      } else {
-        // ✅ NO HAY MOZO ASIGNADO - Mostrar modal de selección
-        console.log('🎯 Mesa sin mozo asignado, mostrando selección...');
-        setMostrarSeleccionMozo(true);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error verificando mozo asignado:', error);
-      // En caso de error, mostrar modal de selección como fallback
-      setMostrarSeleccionMozo(true);
-    }
+    setPanelVentaMesa(true);
+    console.log('🚀 Abriendo modal integrado de mozo+ventas para mesa:', mesa.numero);
   };
 
   // ==========================================
@@ -641,118 +605,11 @@ const GestionMesas: React.FC = () => {
     }
   };
 
-  // ✅ NUEVO SISTEMA: Manejo de asignaciones mozo-mesa con persistencia inmediata
-  const handleSeleccionarMozo = async (mozo: Mozo): Promise<void> => {
-    try {
-      console.log('🚀 Iniciando asignación de mozo con nuevo sistema:', { 
-        mozoId: mozo.id, 
-        mesaId: mesaSeleccionada?.id 
-      });
 
-      // Validaciones previas críticas
-      if (!mesaSeleccionada) {
-        throw new Error('No hay mesa seleccionada');
-      }
 
-      if (!mozo || !mozo.id) {
-        throw new Error('Datos de mozo inválidos');
-      }
 
-      // Importar el nuevo servicio de asignaciones
-      const { default: asignacionesMozoService } = await import('../../services/asignacionesMozoService');
 
-      // CRITERIO 1: Persistencia inmediata del mozo vinculado a la mesa
-      const asignacion = await asignacionesMozoService.asignarMozo(
-        mesaSeleccionada.id,
-        mozo.id,
-        'Asignación desde selección de mozo'
-      );
 
-      console.log('✅ Mozo asignado exitosamente:', asignacion);
-
-      // ✅ FLUJO EXITOSO: Actualizar estados de manera consistente
-      setMozoSeleccionado(mozo);
-      
-      // CRITERIO 6: Abrir panel de ventas automáticamente
-      console.log('🚀 Abriendo panel de ventas...', { mesaSeleccionada: mesaSeleccionada?.numero });
-      setPanelVentaMesa(true);
-      console.log('✅ setPanelVentaMesa(true) ejecutado');
-      
-      // Mostrar notificación de éxito
-      mostrarNotificacion(
-        `Mozo asignado: ${mozo.nombre} ${mozo.apellido} - Mesa lista para trabajar`,
-        'success'
-      );
-
-      console.log('🎯 Flujo completo exitoso - Panel de ventas abierto y mantenido automáticamente');
-      
-    } catch (error) {
-      console.error('❌ Error en asignación de mozo:', error);
-      
-      // Mostrar error específico al usuario
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      mostrarNotificacion(`Error: ${errorMessage}`, 'error');
-      
-      // ✅ IMPORTANTE: Re-lanzar el error para que handleSeleccionar no cierre el modal
-      throw error;
-    }
-  };
-
-  // ✅ MEJORADO: Limpieza inteligente al cerrar modal de selección
-  const handleCerrarSeleccionMozo = () => {
-    console.log('🚪 Cerrando modal de selección de mozo');
-    
-    // Cerrar solo el modal de selección
-    setMostrarSeleccionMozo(false);
-    
-    // ✅ CRÍTICO: NO limpiar mesaSeleccionada si el panel de ventas está abierto
-    // Esto permite mantener el flujo: seleccionar mozo → abrir panel de ventas
-    if (!panelVentaMesa) {
-      setMesaSeleccionada(null);
-      setMozoSeleccionado(null);
-      console.log('✅ Estados limpiados (panel de ventas no activo)');
-    } else {
-      console.log('✅ Estados mantenidos (panel de ventas activo)');
-    }
-  };
-
-  // ✅ NUEVA FUNCIÓN: Limpiar mozo de mesa (cuando se completa una venta)
-  const limpiarMozoMesa = async (mesaId: string) => {
-    try {
-      const { ventasActivasService } = await import('../../services/ventasActivasService');
-      
-      // Completar la venta activa (esto limpia el mozo)
-      await ventasActivasService.completarVenta(mesaId);
-      
-      console.log('✅ Mozo eliminado de mesa:', mesaId);
-      
-    } catch (error) {
-      console.error('❌ Error limpiando mozo de mesa:', error);
-    }
-  };
-
-  // ✅ NUEVA FUNCIÓN: Cambiar mozo de mesa (forzar selección nuevo mozo)
-  const cambiarMozoMesa = async (mesa: Mesa) => {
-    try {
-      console.log('🔄 Cambiando mozo de mesa:', mesa.numero);
-      
-      // Limpiar mozo actual
-      await limpiarMozoMesa(mesa.id);
-      
-      // Mostrar modal de selección nuevamente
-      setMesaSeleccionada(mesa);
-      setMostrarSeleccionMozo(true);
-      
-      mostrarNotificacion(
-        `Seleccione nuevo mozo para mesa ${mesa.numero}`,
-        'info'
-      );
-      
-    } catch (error) {
-      console.error('❌ Error cambiando mozo de mesa:', error);
-      mostrarNotificacion('Error al cambiar mozo de mesa', 'error');
-    }
-  };
 
   const handleEditarMesa = (mesa: Mesa) => {
     setMesaEditando(mesa);
@@ -903,15 +760,10 @@ const GestionMesas: React.FC = () => {
     }
   };
 
-  // Handler para cerrar panel de venta
+  // ✅ SIMPLIFICADO: Cerrar panel de venta integrado
   const handleCerrarPanelVenta = () => {
     setPanelVentaMesa(false);
     setMesaSeleccionada(null);
-    
-    // ✅ NUEVO: También cerrar el modal de selección de mozo si está abierto
-    // ya que ahora el panel de ventas se muestra dentro del mismo modal
-    setMostrarSeleccionMozo(false);
-    setMozoSeleccionado(null);
     
     // Restaurar focus al canvas después de cerrar panel
     setTimeout(() => {
@@ -1305,8 +1157,8 @@ const GestionMesas: React.FC = () => {
         />
       )}
 
-      {/* Panel de gestión de mesa */}
-      {panelVentaMesa && mesaSeleccionada && !mostrarSeleccionMozo && (
+      {/* ✅ MODAL INTEGRADO: Mozo + Ventas en un solo componente */}
+      {panelVentaMesa && mesaSeleccionada && (
         <VentaIntegralV2
           mesa={mesaSeleccionada}
           isOpen={panelVentaMesa}
@@ -1325,43 +1177,8 @@ const GestionMesas: React.FC = () => {
           mesasDisponibles={obtenerMesasDisponibles()}
           onValidarEstado={() => validarEstadoMesaIndividual(mesaSeleccionada.id)}
           onValidarMesasGlobal={validarMesasGlobal}
+          usuarioActual={usuarioActual}
         />
-      )}
-
-      {/* Selección de mozo o Panel de ventas */}
-      {mostrarSeleccionMozo && mesaSeleccionada && (
-        <>
-          {/* Si ya se seleccionó mozo y se abrió el panel de ventas, mostrar el panel de ventas */}
-          {panelVentaMesa ? (
-            <VentaIntegralV2
-              mesa={mesaSeleccionada}
-              isOpen={true}
-              onClose={handleCerrarPanelVenta}
-              onCambiarEstado={(mesa: Mesa, nuevoEstado: EstadoMesa) => {
-                handleCambiarEstadoMesa(mesa, nuevoEstado);
-              }}
-              onVentaCompleta={(venta: any) => {
-                console.log('Venta completada:', venta);
-                handleCerrarPanelVenta();
-                // ✅ Liberar mozo inmediatamente al completar venta
-                setTimeout(() => liberarMozoSiMesaVacia(mesaSeleccionada.id, 'Venta completada y cobrada'), 300);
-                // ✅ Validar estado después de completar venta
-                setTimeout(() => validarEstadoMesaIndividual(mesaSeleccionada.id), 500);
-              }}
-              mesasDisponibles={obtenerMesasDisponibles()}
-              onValidarEstado={() => validarEstadoMesaIndividual(mesaSeleccionada.id)}
-              onValidarMesasGlobal={validarMesasGlobal}
-            />
-          ) : (
-            /* Si no se ha seleccionado mozo, mostrar el selector de mozo */
-            <SeleccionMozo
-              open={true}
-              onClose={handleCerrarSeleccionMozo}
-              onSeleccionar={handleSeleccionarMozo}
-              usuarioActual={usuarioActual}
-            />
-          )}
-        </>
       )}
 
       {/* Snackbar para notificaciones */}
