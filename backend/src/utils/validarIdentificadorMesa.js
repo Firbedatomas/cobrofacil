@@ -1,7 +1,7 @@
 /**
  * Validador de identificadores de mesa
  * Criterios: máximo 4 caracteres, hasta 2 letras + hasta 2 números
- * Ejemplos válidos: A01, B12, AA12, M5
+ * Ejemplos válidos: A01, B12, AA12, M5, 5BI, 12A, 1AB, 25B
  */
 
 export function validarIdentificadorMesa(identificador) {
@@ -32,10 +32,6 @@ export function validarIdentificadorMesa(identificador) {
   // Convertir a mayúsculas para validación
   const identificadorMayuscula = identificador.toUpperCase();
   
-  // Validaciones específicas más estrictas
-  const letras = identificadorMayuscula.match(/[A-Z]/g);
-  const numeros = identificadorMayuscula.match(/[0-9]/g);
-  
   // Verificar que solo contenga letras y números
   if (!/^[A-Z0-9]+$/.test(identificadorMayuscula)) {
     return {
@@ -44,8 +40,12 @@ export function validarIdentificadorMesa(identificador) {
     };
   }
   
+  // Contar letras y números
+  const letras = identificadorMayuscula.match(/[A-Z]/g) || [];
+  const numeros = identificadorMayuscula.match(/[0-9]/g) || [];
+  
   // Verificar máximo 2 letras
-  if (letras && letras.length > 2) {
+  if (letras.length > 2) {
     return {
       valido: false,
       error: 'El identificador puede tener máximo 2 letras'
@@ -53,7 +53,7 @@ export function validarIdentificadorMesa(identificador) {
   }
   
   // Verificar máximo 2 números
-  if (numeros && numeros.length > 2) {
+  if (numeros.length > 2) {
     return {
       valido: false,
       error: 'El identificador puede tener máximo 2 números'
@@ -61,18 +61,24 @@ export function validarIdentificadorMesa(identificador) {
   }
   
   // Verificar que tenga al menos una letra o un número
-  if (!letras && !numeros) {
+  if (letras.length === 0 && numeros.length === 0) {
     return {
       valido: false,
       error: 'El identificador debe contener al menos una letra o un número'
     };
   }
   
-  // Validar patrones permitidos (evitar intercalados como 1A2B)
+  // ✅ VALIDACIÓN FLEXIBLE: Permite cualquier combinación de letras y números
+  // Patrones válidos ampliados:
   const patronesValidos = [
     /^[A-Z]{1,2}[0-9]{1,2}$/, // Letras seguidas de números: A01, AB12
+    /^[0-9]{1,2}[A-Z]{1,2}$/, // Números seguidos de letras: 5B, 12AB
     /^[A-Z]{1,2}$/, // Solo letras: A, AB
     /^[0-9]{1,2}$/, // Solo números: 1, 12
+    /^[A-Z][0-9][A-Z]$/, // Letra-número-letra: A1B
+    /^[0-9][A-Z][0-9]$/, // Número-letra-número: 1A2
+    /^[A-Z][0-9][A-Z][0-9]$/, // Letra-número-letra-número: A1B2
+    /^[0-9][A-Z][0-9][A-Z]$/, // Número-letra-número-letra: 1A2B
   ];
   
   const esPatronValido = patronesValidos.some(patron => patron.test(identificadorMayuscula));
@@ -80,7 +86,7 @@ export function validarIdentificadorMesa(identificador) {
   if (!esPatronValido) {
     return {
       valido: false,
-      error: 'El identificador debe seguir el formato: letras seguidas de números (ej: A01, AB12)'
+      error: 'El identificador debe ser una combinación válida de letras y números (ej: A01, 5B, AB12, 12A)'
     };
   }
   

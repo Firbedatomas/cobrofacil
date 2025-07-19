@@ -3,427 +3,257 @@ alwaysApply: true
 ---
 📋 GUÍA COMPLETA: Sistema de Gestión de Mesas CobroFácil
 🎯 RESUMEN EJECUTIVO
-Sistema integral de gestión de mesas para restaurantes que combina:
+Sistema integral para la gestión de mesas en restaurantes que combina:
+
 Gestión visual de sectores, mesas y objetos decorativos
+
 Sistema de ventas con estados de mesa controlados
+
 Facturación con formas de pago obligatorias
+
 Arrastre y posicionamiento en tiempo real
-Sincronización entre múltiples dispositivos
+
+Sincronización inteligente entre dispositivos
+
+Flujo continuo de selección de mozo → ventas, sin cerrar el modal
+
 🏗️ ARQUITECTURA DEL SISTEMA
-Componentes Principales
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (React + TypeScript)           │
-│  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │ GestionMesas    │  │ MesaGridCanvas  │                  │
-│  │ (Coordinador)   │  │ (Renderizado)   │                  │
-│  └─────────────────┘  └─────────────────┘                  │
-│                                                             │
-│  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │ VentaIntegralV2 │  │ FormularioObjs  │                  │
-│  │ (Ventas/Factur.)│  │ (Objetos Decor.)│                  │
-│  └─────────────────┘  └─────────────────┘                  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │ API REST
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                    BACKEND (Node.js + Prisma)              │
-│  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │ /api/sectores   │  │ /api/mesas      │                  │
-│  │ /api/objetos    │  │ /api/ventas     │                  │
-│  └─────────────────┘  └─────────────────┘                  │
-│                                                             │
-│  ┌─────────────────┐  ┌─────────────────┐                  │
-│  │ PostgreSQL      │  │ Sistema Auth    │                  │
-│  │ (Persistencia)  │  │ (JWT Tokens)    │                  │
-│  └─────────────────┘  └─────────────────┘                  │
-└─────────────────────────────────────────────────────────────┘
+FRONTEND: React + TypeScript
+GestionMesas: Coordinador general
+
+MesaGridCanvas: Renderizado de canvas
+
+VentaIntegralV2: Ventas y facturación
+
+FormularioObjs: Gestión de objetos decorativos
+
+BACKEND: Node.js + Prisma
+APIs REST para sectores, mesas, objetos, ventas
+
+Persistencia en PostgreSQL
+
+Autenticación con JWT
+
 📊 ESTRUCTURA DE DATOS
-Estados de Mesa (3 únicos)
+Estados de Mesa
+
+typescript
+Copiar
+Editar
 enum EstadoMesa {
-  LIBRE = 'LIBRE',                    // 🟢 Verde - Sin ítems ni facturación
-  OCUPADA = 'OCUPADA',                // 🔴 Rojo - Con ítems, sin facturación
-  ESPERANDO_PEDIDO = 'ESPERANDO_PEDIDO' // 🔵 Azul - Factura/ticket emitido
+  LIBRE = 'LIBRE',
+  OCUPADA = 'OCUPADA',
+  ESPERANDO_PEDIDO = 'ESPERANDO_PEDIDO'
 }
 Modelo de Mesa
+
+typescript
+Copiar
+Editar
 interface Mesa {
   id: string;
   numero: string;
   capacidad: number;
-  posicionX: number;        // Coordenadas en canvas
+  posicionX: number;
   posicionY: number;
-  size: number;            // Tamaño personalizable (20-200px)
+  size: number;
   estado: EstadoMesa;
-  forma: FormaMesa;        // REDONDA | CUADRADA | RECTANGULAR | OVALADA
+  forma: FormaMesa;
   color?: string;
   sectorId: string;
-  sector?: Sector;
 }
-Modelo de Facturación
+Facturación
+
+typescript
+Copiar
+Editar
 interface FacturaEmitida {
   tipo: 'fiscal' | 'no_fiscal' | null;
   numero?: string;
-  pagos: Array<{
-    metodo: 'efectivo' | 'tarjeta' | 'qr' | 'transferencia';
-    monto: number;
-  }>;
+  pagos: FormaPago[];
   anulada: boolean;
   fechaEmision?: Date;
 }
 🎮 FUNCIONAMIENTO DETALLADO
-1. GESTIÓN DE SECTORES
-Crear Sector
-// API: POST /api/sectores
-{
-  "nombre": "Salón Principal",
-  "descripcion": "Área principal del restaurante",
-  "color": "#2196f3",
-  "icono": "🍽️",
-  "orden": 0
-}
-Funcionalidades
+1. Gestión de Sectores y Mesas
 Crear, editar, eliminar sectores
-Ordenamiento por prioridad
-Colores e iconos personalizables
-Validación de nombres únicos
-Crear Mesa
-stateDiagram-v2
-    [*] --> LIBRE
-    LIBRE --> OCUPADA : Agregar ítem
-    OCUPADA --> LIBRE : Eliminar todos los ítems
-    OCUPADA --> ESPERANDO_PEDIDO : Emitir factura/ticket
-    ESPERANDO_PEDIDO --> LIBRE : Completar venta
-    ESPERANDO_PEDIDO --> OCUPADA : Anular factura
-    Arrastre y Posicionamiento
-Drag & Drop en tiempo real
-Sistema de cambios pendientes (visual inmediato, guardado por lotes)
-Sincronización automática entre dispositivos
-Restricciones de límites del canvas
-3. SISTEMA DE VENTAS
-Flujo de Venta Completo
-// API: POST /api/mesas
-{
-  "numero": "M01",
-  "sectorId": "sector-id",
-  "capacidad": 4,
-  "forma": "REDONDA",
-  "posicionX": 100,
-  "posicionY": 150,
-  "size": 60,
-  "color": "#4caf50"
-}
-Estados de Venta
-'activa' - Venta en curso
-'enviada' - Comanda enviada a cocina
-'cuenta_pedida' - Cuenta solicitada
-Gestión de Productos
-Búsqueda inteligente con normalización de texto
-Modificación de cantidades en tiempo real
-Eliminación con validación de estado
-Especificaciones personalizadas por ítem
-4. FACTURACIÓN Y FORMAS DE PAGO
-Criterios Obligatorios
-Registro obligatorio de forma de pago al emitir ticket
-Estados únicos controlados por lógica de negocio
-Anulación y reintegro con trazabilidad completa
-Modal de Formas de Pago
-// 1. Inicializar venta
-ventasActivasService.crearVenta(mesa.id);
 
-// 2. Agregar productos
-ventasActivasService.agregarProducto(mesa.id, producto, cantidad);
+Crear mesas con coordenadas, forma, tamaño, color
 
-// 3. Procesar facturación
-const factura = await procesarFacturacionConPago(formasPago);
+Estados dinámicos de la mesa: LIBRE → OCUPADA → ESPERANDO_PEDIDO
 
-// 4. Completar venta
-ventasActivasService.completarVenta(mesa.id);
-Tipos de Comprobantes
-TICKET - No fiscal
-FACTURA_A - Responsable inscripto
-FACTURA_B - Consumidor final
-Proceso de Anulación
-interface FormaPago {
-  metodo: 'efectivo' | 'tarjeta' | 'qr' | 'transferencia';
-  monto: number;
-}
+2. Arrastre y Posicionamiento
+Drag & Drop en tiempo real con sincronización pendiente
 
-// Validación: Total de pagos = Total de venta
-const totalPagos = formasPago.reduce((sum, p) => sum + p.monto, 0);
-if (Math.abs(totalPagos - ventaTotal) > 0.01) {
-  throw new Error('Los pagos deben cubrir el total');
-}
-5. OBJETOS DECORATIVOS
-Tipos Disponibles
-// Criterio 4: Lógica de anulación
-const anularFactura = async () => {
-  // 1. Anular ticket emitido
-  setFacturaEmitida(prev => ({ ...prev, anulada: true }));
-  
-  // 2. Volver estado a rojo (ocupada)
-  onCambiarEstado(mesa, EstadoMesa.OCUPADA);
-  
-  // 3. Permitir nueva facturación
-  setModalFormasPago(true);
-};
-Crear Objeto
-enum TipoObjeto {
-  DECORATIVO = 'DECORATIVO',
-  BARRA = 'BARRA',
-  ESCENARIO = 'ESCENARIO',
-  BANO = 'BANO',
-  COCINA = 'COCINA',
-  ENTRADA = 'ENTRADA',
-  SALIDA = 'SALIDA',
-  OTROS = 'OTROS'
-}
-Características
-Arrastre igual que las mesas
-Edición visual con iconos de ajuste ⚙️
-Eliminación integrada en formulario
-Sin iconos ni bordes (solo color de fondo)
-6. SISTEMA DE CAMBIOS PENDIENTES
-Arquitectura
-Características
-Arrastre igual que las mesas
-Edición visual con iconos de ajuste ⚙️
-Eliminación integrada en formulario
-Sin iconos ni bordes (solo color de fondo)
-6. SISTEMA DE CAMBIOS PENDIENTES
-Arquitectura
-Flujo de Guardado
-interface CambiosPendientes {
-  mesas: Array<{ id: string; posicionX: number; posicionY: number }>;
-  objetos: Array<{ id: string; posicionX: number; posicionY: number }>;
-}
-7. SINCRONIZACIÓN INTELIGENTE
-Lógica de Sincronización
-// 1. Arrastre - Solo actualización visual
-const handleMouseMove = (e) => {
-  // Actualizar posición local inmediatamente
-  setMesasLocales(prev => prev.map(mesa => 
-    mesa.id === dragging.mesa.id 
-      ? { ...mesa, posicionX: nuevaX, posicionY: nuevaY }
-      : mesa
-  ));
-  
-  // Registrar cambio pendiente (sin BD)
-  setCambiosPendientes(prev => ({
-    ...prev,
-    mesas: [...prev.mesas.filter(m => m.id !== mesaId), 
-           { id: mesaId, posicionX: nuevaX, posicionY: nuevaY }]
-  }));
-};
+Guardado por lotes
 
-// 2. Guardado - Envío por lotes a BD
-const guardarCambiosPendientes = async () => {
-  for (const cambio of cambiosPendientes.mesas) {
-    await mesasApi.actualizar(cambio.id, {
-      posicionX: cambio.posicionX,
-      posicionY: cambio.posicionY
-    });
-  }
-  setCambiosPendientes({ mesas: [], objetos: [] });
-};
-8. MODO EDICIÓN
-Activación
-Botón "Editar Plano" en header
-Atajo de teclado 'E'
-Auto-activación al crear objetos
-Funcionalidades
-Arrastre de mesas y objetos
-Iconos de ajuste ⚙️ para edición rápida
-Grilla opcional (tecla 'G')
-Zoom (Ctrl + rueda del mouse)
-Guardado por lotes al salir
-Atajos de Teclado
-useEffect(() => {
-  const tieneCambiosPendientes = cambiosPendientes.mesas.length > 0;
-  
-  // Solo sincronizar cuando:
-  // 1. No hay cambios pendientes
-  // 2. No se está arrastrando
-  // 3. No estamos en modo edición con cambios
-  if (!dragging && !tieneCambiosPendientes) {
-    console.log('🔄 Sincronizando desde BD');
-    setMesasLocales(mesas);
-  } else {
-    console.log('⏸️ Evitando sincronización - hay cambios pendientes');
-  }
-}, [mesas, dragging, cambiosPendientes]);
-9. INTERFAZ DE USUARIO
-Layout Principal
-const atajos = {
-  'E': 'Activar/desactivar modo edición',
-  'G': 'Mostrar/ocultar grilla',
-  'O': 'Crear objeto decorativo',
-  'Ctrl++': 'Zoom in',
-  'Ctrl+-': 'Zoom out',
-  'Ctrl+0': 'Reset zoom',
-  'Escape': 'Salir de modo edición'
-};
-Colores de Estado
-🟢 Verde (#4CAF50) - Mesa libre
-🔴 Rojo (#F44336) - Mesa ocupada
-🔵 Azul (#2196F3) - Mesa facturada
-10. APIs DEL BACKEND
-┌─────────────────────────────────────────────────────────────┐
-│ Header: Título + Botones (Nuevo Sector, Editar Plano)      │
-├─────────────────────────────────────────────────────────────┤
-│ Sectores: Tabs horizontales con colores e iconos           │
-├─────────────────────────────────────────────────────────────┤
-│ Sidebar │ Canvas Principal                                  │
-│ - Ocup. │ - Mesas con estados de color                     │
-│ - Stats │ - Objetos decorativos                            │
-│         │ - Zoom y grilla opcionales                       │
-└─────────────────────────────────────────────────────────────┘
-Mesas
-GET    /api/sectores          // Obtener todos
-POST   /api/sectores          // Crear nuevo
-PUT    /api/sectores/:id      // Actualizar
-DELETE /api/sectores/:id      // Eliminar
-Objetos Decorativos
-GET    /api/mesas             // Obtener todas
-POST   /api/mesas             // Crear nueva
-PUT    /api/mesas/:id         // Actualizar
-PATCH  /api/mesas/:id/estado  // Cambiar estado
-PATCH  /api/mesas/:id/posicion // Actualizar posición
-DELETE /api/mesas/:id         // Eliminar
-11. VALIDACIONES Y SEGURIDAD
-Autenticación
-JWT Tokens en todas las rutas
-Middleware verificarToken obligatorio
-Manejo de expiración con redirección automática
-Validaciones de Negocio
-GET    /api/objetos-decorativos        // Obtener todos
-POST   /api/objetos-decorativos        // Crear nuevo
-PUT    /api/objetos-decorativos/:id    // Actualizar
-PATCH  /api/objetos-decorativos/:id/posicion // Actualizar posición
-DELETE /api/objetos-decorativos/:id    // Eliminar
-12. RENDIMIENTO Y OPTIMIZACIÓN
-Antes vs Después
-// Estados de mesa
-const validarCambioEstado = (estadoActual, estadoNuevo) => {
-  // Solo se puede ir a AZUL desde ROJO con factura
-  if (estadoNuevo === 'ESPERANDO_PEDIDO' && !facturaEmitida.tipo) {
-    throw new Error('Debe emitir factura antes de cambiar a azul');
-  }
-};
+Sincronización inteligente entre dispositivos
 
-// Formas de pago
-const validarFormasPago = (formasPago, total) => {
-  if (formasPago.length === 0) {
-    throw new Error('Debe seleccionar al menos una forma de pago');
-  }
-  
-  const totalPagos = formasPago.reduce((sum, p) => sum + p.monto, 0);
-  if (Math.abs(totalPagos - total) > 0.01) {
-    throw new Error('Los pagos deben cubrir el total exacto');
-  }
-};
-Debounce y Throttling
-❌ ANTES:
-- 1 llamada API por píxel de arrastre
-- Sincronización constante desde BD
-- Pérdida de cambios al recargar
+3. Sistema de Ventas
+Estados de venta: activa, enviada, cuenta_pedida
 
-✅ DESPUÉS:
-- 0 llamadas API durante arrastre
-- Sincronización inteligente solo cuando es necesario
-- Sistema de cambios pendientes con guardado por lotes
-- Mejora del 95% en llamadas a BD
-13. MANEJO DE ERRORES
-Errores de Red
-// Evitar spam de peticiones
-const debouncedSave = useCallback(
-  debounce((cambios) => {
-    guardarCambiosPendientes(cambios);
-  }, 300),
-  []
-);
-Recuperación de Errores
+Buscador inteligente de productos
+
+Personalización por ítem y validación en modificaciones
+
+4. Facturación y Formas de Pago
+Registro obligatorio de formas de pago
+
+Soporte de TICKET, FACTURA_A y FACTURA_B
+
+Anulación y reintegro con trazabilidad
+
+5. Objetos Decorativos
+Tipos: DECORATIVO, BARRA, ESCENARIO, BAÑO, etc.
+
+Posicionamiento libre y edición rápida
+
+Integración al sistema de cambios pendientes
+
+6. Sistema de Cambios Pendientes
+Almacena movimientos de mesas y objetos para guardar en lote
+
+Previene pérdida de datos en recargas
+
+7. Sincronización Inteligente
+Solo sincroniza si no hay cambios pendientes ni arrastre activo
+
+Guardado eficiente con debounce y throttling
+
+8. Modo Edición
+Activación con botón o tecla 'E'
+
+Edición directa de mesas/objetos
+
+Zoom, grilla opcional, y guardado en lote
+
+9. Interfaz de Usuario
+Colores:
+
+🟢 Verde: LIBRE
+
+🔴 Rojo: OCUPADA
+
+🔵 Azul: FACTURADA
+
+Atajos de teclado configurables
+
+10. APIs Backend
+Rutas completas CRUD para sectores, mesas, objetos decorativos y ventas con validaciones JWT.
+
+11. Validaciones y Seguridad
+Autenticación por JWT
+
+Validaciones estrictas de estado y pagos
+
+Protección de flujos críticos
+
+12. Rendimiento y Optimización
+Reducción del 95% en llamadas API durante arrastre
+
+Guardado por lotes < 2 segundos
+
+Sincronización cross-device < 5 segundos
+
+13. Manejo de Errores
 Auto-retry en fallos de red
-Reversión de cambios en caso de error
-Notificaciones claras al usuario
-Logs detallados para debugging
-14. CASOS DE USO PRINCIPALES
-Caso 1: Venta Completa
-Cliente llega → Mesa en estado VERDE
-Mesero agrega productos → Mesa cambia a ROJO
-Cliente termina → Mesero emite ticket con forma de pago
-Mesa cambia a AZUL → Venta completada
-Cliente se va → Mesa vuelve a VERDE
-Caso 2: Anulación de Factura
-Mesa en estado AZUL (facturada)
-Cliente quiere cambiar forma de pago
-Mesero anula factura → Mesa vuelve a ROJO
-Selecciona nueva forma de pago → Mesa vuelve a AZUL
-Caso 3: Reorganización de Plano
-Gerente activa modo edición
-Arrastra mesas y objetos → Cambios visuales inmediatos
-Botón muestra "Guardar Cambios (5)"
-Hace clic en guardar → Todos los cambios se envían a BD
-Desactiva modo edición → Cambios persistidos
-15. MÉTRICAS Y MONITOREO
-Logs de Operaciones
-const handleError = (error) => {
-  if (error.response?.status === 401) {
-    // Token expirado
-    localStorage.removeItem('authToken');
-    window.location.href = '/login';
-  } else if (error.response?.status === 409) {
-    // Conflicto de datos
-    mostrarNotificacion('Conflicto: datos ya modificados', 'warning');
-    recargarDatos();
-  } else {
-    // Error genérico
-    mostrarNotificacion('Error de conexión', 'error');
-  }
-};
-Indicadores de Performance
-Tiempo de respuesta de arrastre: < 16ms (60fps)
-Reducción de API calls: 95%
-Tiempo de guardado por lotes: < 2s
-Sincronización entre dispositivos: < 5s
-🎯 BENEFICIOS DEL SISTEMA
-Para Operadores
-Interfaz intuitiva con colores claros
-Arrastre fluido sin delays
-Estados automáticos sin intervención manual
-Facturación obligatoria evita errores
-Para Gerentes
-Reorganización visual del plano
-Reportes por forma de pago automáticos
-Trazabilidad completa de operaciones
-Sincronización entre múltiples dispositivos
-Para Desarrolladores
-Código modular y bien documentado
-APIs RESTful estándar
-Sistema de tipos completo en TypeScript
-Manejo de errores robusto
-🔧 CONFIGURACIÓN Y MANTENIMIENTO
-Variables de Entorno
-console.log('🎯 Moviendo mesa 3 (VISUAL):', {
-  mousePos: { x: 250, y: 180 },
-  nuevaPosicion: { x: 220, y: 150 },
-  guardadoEn: 'PENDIENTE (no en BD)'
-});
 
-console.log('✅ Mesa guardada en BD:', mesaId, {
-  x: nuevaPosicionX, 
-  y: nuevaPosicionY
-}, '(BD + estado)');
-Backup y Restauración
-# Backend
-DATABASE_URL="postgresql://..."
-JWT_SECRET="..."
-NODE_ENV="production"
+Logs detallados
 
-# Frontend
-VITE_API_URL="http://localhost:3000"
-VITE_APP_NAME="CobroFácil"
-Mejoras Técnicas
-WebSockets para sincronización en tiempo real
-Service Workers para funcionamiento offline
-Progressive Web App completa
-Microservicios para escalabilidad
+Reversión segura en caso de error
+
+🔄 FLUJO DE SELECCIÓN DE MOZO Y PANEL DE VENTAS INTEGRADO
+🎯 Objetivo
+Crear un flujo continuo donde el modal de selección de mozo se transforma en el panel de ventas, evitando transiciones abruptas.
+
+📋 Flujo Paso a Paso
+Click en Mesa → abre modal de selección de mozo.
+
+Seleccionar Mozo: se asigna en backend, el modal NO se cierra.
+
+Activación del Panel de Ventas: el modal cambia internamente al panel de ventas.
+
+Venta Completa: el usuario realiza la venta sin salir del modal.
+
+Cierre Final: al cerrar el panel, se limpia todo y vuelve el focus al canvas.
+
+⚙️ Estados Controlados
+modalMozoAbierto: boolean
+
+panelVentasActivo: boolean
+
+mesaSeleccionada: Mesa | null
+
+mozoSeleccionado: Mozo | null
+
+🔒 Validaciones y Errores
+Validar existencia de mesa/mozo antes de cambiar de estado
+
+Si falla la asignación, no se cierra el modal, solo se muestra el error
+
+🎨 Feedback Visual
+Indicador de loading en asignación de mozo
+
+Notificación de éxito en asignación
+
+Breadcrumb o paso actual visible
+
+📊 Beneficios
+Continuidad visual y sin cierres
+
+Menos re-renderizados y más performance
+
+UX fluida y profesional
+
+🔧 Checklist de Implementación
+ Modal no se cierra durante transición
+
+ Renderizado condicional implementado
+
+ Limpieza de estados al cierre
+
+ Feedback visual implementado
+
+ Logs de debug
+
+ Restauración de focus al cerrar
+
+ Manejo de errores robusto
+
+✅ CASOS DE USO
+Venta Completa: Mesa verde → Mozo → Productos → Facturación
+
+Anulación: Mesa azul → Anular → Vuelve a rojo
+
+Reorganización: Modo edición → Mover mesas/objetos → Guardar
+
+📈 MÉTRICAS Y MONITOREO
+Tiempo de respuesta en UI: <16ms
+
+Reducción de llamadas API: 95%
+
+Guardado por lotes: <2s
+
+Sincronización dispositivos: <5s
+
+🔩 CONFIGURACIÓN Y MANTENIMIENTO
+Variables de entorno backend y frontend
+
+Backup y restauración de base de datos
+
+WebSockets + Service Workers + PWA
+
+Microservicios para escalabilidad futura
+
+📜 REGLA GENERAL DE TRANSFORMACIÓN DE MODALES
+"Mantener el modal abierto, cambiando solo su contenido interno mediante renderizado condicional. Cerrar únicamente al finalizar el flujo completo."
+
+Aplicable a futuros desarrollos:
+
+Modal Cliente → Panel Facturación
+
+Modal Producto → Configuración
+
+Modal Turno → Caja
+
+Modal Sector → Estadísticas

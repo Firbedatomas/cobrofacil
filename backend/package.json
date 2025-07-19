@@ -5,8 +5,9 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "NODE_ENV=production node src/index.js",
+    "start": "NODE_ENV=development node src/index.js",
     "dev": "NODE_ENV=development node src/index.js",
+    "prod": "NODE_ENV=production node src/index.js",
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:reset": "prisma db push --force-reset",

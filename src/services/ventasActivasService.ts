@@ -57,6 +57,20 @@ class VentasActivasService {
   // ===============================================
 
   /**
+   * Verificar si hay cache local para una mesa (sin hacer llamada al API)
+   */
+  tieneCache(mesaId: string): boolean {
+    return this.ventasActivas.has(mesaId);
+  }
+
+  /**
+   * Obtener venta desde cache local únicamente (sin API)
+   */
+  obtenerDesdeCache(mesaId: string): VentaActiva | null {
+    return this.ventasActivas.get(mesaId) || null;
+  }
+
+  /**
    * Obtener venta activa de una mesa - CON SINCRONIZACIÓN BACKEND
    */
   async obtenerVentaActiva(mesaId: string): Promise<VentaActiva | null> {
@@ -70,7 +84,7 @@ class VentasActivasService {
       // Intentar obtener desde backend primero
       const response = await api.get(`/ventas/mesa/${mesaId}`);
       
-      if (response.data.success) {
+      if (response.data.success && response.data.data) {
         const ventaBackend = response.data.data;
         
         // Convertir formato backend a formato frontend
@@ -104,6 +118,9 @@ class VentasActivasService {
         
         console.log('✅ Venta obtenida desde backend para mesa:', mesaId, 'Items:', ventaLocal.items.length);
         return ventaLocal;
+      } else if (response.data.success && !response.data.data) {
+        console.log('ℹ️ No hay venta activa para mesa:', mesaId);
+        return null;
       }
     } catch (error: any) {
       if (error.response?.status === 404) {

@@ -1,0 +1,105 @@
+---
+alwaysApply: false
+---
+🎯 Objetivo
+Crear una experiencia de usuario fluida donde el modal de selección de mozo se transforme directamente en el panel de ventas sin cerrarse, eliminando transiciones abruptas y mejorando la continuidad del flujo operativo.
+🔄 Flujo Técnico Paso a Paso
+PASO 1: Apertura del Modal de Selección
+Usuario hace clic en una mesa
+Se abre el modal de selección de mozo
+El panel de ventas permanece cerrado inicialmente
+Se almacena la mesa seleccionada
+PASO 2: Selección del Mozo (SIN CERRAR MODAL)
+Usuario selecciona un mozo de la lista
+Se ejecuta la asignación del mozo a la mesa
+CRÍTICO: El modal NO se cierra después de la selección
+Solo se muestra error si falla, sin cerrar modal
+PASO 3: Asignación del Mozo y Apertura del Panel
+Se asigna el mozo a la mesa en el backend
+Se actualizan los estados de mozo seleccionado
+Se activa el estado del panel de ventas
+Se muestra notificación de éxito
+CRÍTICO: El modal de selección permanece abierto
+PASO 4: Renderizado Condicional (Transformación del Modal)
+Se evalúa si el panel de ventas está activo
+Si está activo: se renderiza el panel de ventas dentro del mismo modal
+Si no está activo: se renderiza el selector de mozo
+CRÍTICO: Es el mismo modal que cambia su contenido
+PASO 5: Cierre Completo del Modal
+Usuario cierra el panel de ventas
+Se cierran todos los estados relacionados
+Se limpia la mesa seleccionada
+Se cierra el modal de selección de mozo
+Se restaura el focus al canvas principal
+📱 Experiencia del Usuario Paso a Paso
+Click en Mesa → Modal de selección de mozo se abre
+Seleccionar Mozo → Modal permanece abierto, mozo se asigna en backend
+Transformación Visual → El contenido del modal cambia de selector a panel de ventas
+Comenzar Venta → Usuario puede buscar productos y realizar ventas
+Cerrar Panel → Modal se cierra completamente
+⚙️ Estados y Variables Clave
+Estados principales que controlan el flujo:
+Estado de modal de selección de mozo (abierto/cerrado)
+Estado de panel de ventas (activo/inactivo)
+Mesa seleccionada (objeto mesa o null)
+Mozo seleccionado (objeto mozo o null)
+Lógica de control:
+Modal abierto + Panel inactivo = Muestra selector de mozo
+Modal abierto + Panel activo = Muestra panel de ventas
+Modal cerrado = No muestra nada
+🔧 Principios Técnicos Obligatorios
+1. NO Cerrar Modal Durante Transición
+La función de selección NO debe cerrar el modal
+El modal debe permanecer abierto para la transformación
+Solo cerrar en caso de cancelación explícita
+2. Renderizado Condicional Obligatorio
+Usar condiciones para mostrar el componente correcto
+Mantener la estructura del modal intacta
+Cambiar solo el contenido interno
+3. Limpieza Completa en Cierre
+Limpiar todos los estados relacionados al cerrar
+Resetear selecciones y datos temporales
+Restaurar estado inicial del sistema
+🚨 Validaciones y Manejo de Errores
+1. Validar Estados Antes de Transición
+Verificar que hay mesa seleccionada
+Confirmar que el mozo existe y está activo
+Validar permisos del usuario
+2. Manejo de Errores Sin Cerrar Modal
+Mostrar mensajes de error claros
+NO cerrar modal en caso de error
+Permitir reintento del usuario
+Mantener contexto de la operación
+🎨 Indicadores Visuales Obligatorios
+1. Feedback Visual Durante Transición
+Mostrar loading durante asignación
+Indicar cambio de estado claramente
+Notificación de éxito tras asignación
+2. Breadcrumb o Indicador de Estado
+Mostrar progreso del flujo
+Indicar paso actual del proceso
+Facilitar navegación entre estados
+📊 Beneficios del Flujo Implementado
+Continuidad Visual: Sin parpadeos ni cierres abruptos
+Mejor UX: Transición fluida entre funcionalidades
+Menos Confusión: Un solo modal para todo el proceso
+Mejor Performance: Menos re-renderizados
+Fácil Mantenimiento: Lógica clara y predecible
+🔍 Aplicaciones Futuras de esta Regla
+Modal de Cliente → Panel de Facturación
+Modal de Producto → Panel de Configuración
+Modal de Mesa → Panel de Configuración
+Modal de Turno → Panel de Caja
+Modal de Sector → Panel de Estadísticas
+✅ Checklist de Implementación
+[ ] Modal principal NO se cierra durante selección
+[ ] Renderizado condicional implementado correctamente
+[ ] Estados limpiados correctamente en cierre final
+[ ] Validaciones de error sin cerrar modal
+[ ] Feedback visual durante transición
+[ ] Logs de debug para seguimiento del flujo
+[ ] Restauración de focus al cerrar modal
+[ ] Manejo de casos edge (errores, timeouts, etc.)
+🎯 Regla General para Implementar
+"Cuando un modal debe transformarse en otro componente relacionado, mantener el contenedor del modal abierto y cambiar solo su contenido interno mediante renderizado condicional, cerrando completamente solo cuando el usuario termina todo el flujo."
+Esta regla garantiza transiciones fluidas y profesionales entre componentes modales relacionados, mejorando significativamente la experiencia del usuario.

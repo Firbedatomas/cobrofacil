@@ -40,6 +40,10 @@ model Usuario {
   sectores        Sector[]
   objetosDecorativos ObjetoDecorativo[]
   
+  // Nuevas relaciones para asignaciones de mozo
+  asignacionesMozo AsignacionMozo[] @relation("AsignacionesMozo")
+  asignacionesRealizadas AsignacionMozo[] @relation("AsignacionesRealizadas")
+  
   @@map("usuarios")
 }
 
@@ -78,9 +82,9 @@ model Producto {
   id          String   @id @default(cuid())
   codigo      String   @unique
   nombre      String
-  descripcion String?
   precio      Decimal  @db.Decimal(10, 2)
   costo       Decimal  @db.Decimal(10, 2) @default(0)
+  comandera   String?  // Opcional: cocina, salon, barra, etc.
   activo      Boolean  @default(true)
   fechaCreacion DateTime @default(now())
   fechaActualizacion DateTime @updatedAt
@@ -111,6 +115,7 @@ model Venta {
   metodoPago  MetodoPago? // Opcional para ventas de mesa pendientes
   estado      EstadoVenta @default(PENDIENTE) // Ventas inician pendientes
   fechaVenta  DateTime @default(now())
+  observaciones String? // Observaciones generales de la venta
   
   // Campos AFIP
   tipoComprobante TipoComprobante @default(TICKET_NO_FISCAL)
@@ -811,6 +816,9 @@ model Mesa {
   usuarioId       String
   usuario         Usuario  @relation(fields: [usuarioId], references: [id])
   
+  // Relación con asignaciones de mozo
+  asignacionesMozo AsignacionMozo[]
+  
   @@unique([sectorId, numero])
   @@map("mesas")
 }
@@ -876,4 +884,33 @@ enum TipoObjeto {
   ENTRADA
   SALIDA
   OTROS
+}
+
+// Modelo de Asignación Mozo-Mesa
+// Criterio 1: Persistencia inmediata del mozo vinculado a la mesa
+model AsignacionMozo {
+  id              String   @id @default(cuid())
+  
+  // Relación con mesa
+  mesaId          String
+  mesa            Mesa     @relation(fields: [mesaId], references: [id], onDelete: Cascade)
+  
+  // Relación con mozo (usuario con rol MOZO)
+  mozoId          String
+  mozo            Usuario  @relation("AsignacionesMozo", fields: [mozoId], references: [id])
+  
+  // Información de la asignación
+  fechaAsignacion DateTime @default(now())
+  fechaLiberacion DateTime?
+  activa          Boolean  @default(true)
+  
+  // Usuario que hizo la asignación
+  asignadoPorId   String
+  asignadoPor     Usuario  @relation("AsignacionesRealizadas", fields: [asignadoPorId], references: [id])
+  
+  // Observaciones de la asignación
+  observaciones   String?
+  
+  @@unique([mesaId, activa]) // Solo una asignación activa por mesa
+  @@map("asignaciones_mozo")
 } 

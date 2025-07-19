@@ -90,8 +90,58 @@ router.get('/:id', verificarToken, [
   }
 });
 
-// POST /api/categorias - Crear nueva categoría
+// POST /api/categorias - Crear nueva categoría (requiere supervisor)
 router.post('/', verificarToken, verificarSupervisor, validacionCategoria, async (req, res) => {
+  try {
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return res.status(400).json({
+        error: 'Datos de entrada inválidos',
+        detalles: errores.array()
+      });
+    }
+
+    const { nombre, descripcion } = req.body;
+
+    // Verificar que el nombre no exista
+    const categoriaExistente = await prisma.categoria.findFirst({
+      where: { 
+        nombre: {
+          equals: nombre,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (categoriaExistente) {
+      return res.status(409).json({
+        error: 'Ya existe una categoría con este nombre'
+      });
+    }
+
+    // Crear categoría
+    const nuevaCategoria = await prisma.categoria.create({
+      data: {
+        nombre,
+        descripcion
+      }
+    });
+
+    res.status(201).json({
+      message: 'Categoría creada exitosamente',
+      categoria: nuevaCategoria
+    });
+
+  } catch (error) {
+    console.error('Error creando categoría:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+// POST /api/categorias/rapida - Crear categoría rápida (para uso en productos)
+router.post('/rapida', verificarToken, validacionCategoria, async (req, res) => {
   try {
     const errores = validationResult(req);
     if (!errores.isEmpty()) {

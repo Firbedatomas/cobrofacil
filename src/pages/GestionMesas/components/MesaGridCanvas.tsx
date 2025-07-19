@@ -1499,9 +1499,59 @@ const MesaGridCanvas: React.FC<MesaGridCanvasProps> = ({
               }}
             >
               <Plus size={48} style={{ marginBottom: 16 }} />
-              <Typography variant="h6">
-                Doble clic para crear tu primera mesa
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                {modoEdicion ? 'Modo edición activado' : 'Doble clic para crear tu primera mesa'}
               </Typography>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => onNuevaMesa(400, 200)}
+                startIcon={<Plus size={20} />}
+                sx={{
+                  fontSize: '1.1rem',
+                  padding: '12px 24px',
+                  borderRadius: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  '&:hover': {
+                    boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Crear Primera Mesa
+              </Button>
+            </Box>
+          )}
+
+          {/* Botón flotante para crear mesa cuando hay mesas existentes */}
+          {!dragging && mesas.length > 0 && modoEdicion && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 24,
+                right: 24,
+                zIndex: 1000
+              }}
+            >
+              <Button
+                variant="contained"
+                onClick={() => onNuevaMesa(200, 150)}
+                startIcon={<Plus size={20} />}
+                sx={{
+                  minWidth: 'auto',
+                  padding: '12px 16px',
+                  borderRadius: '50px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  '&:hover': {
+                    boxShadow: '0 6px 16px rgba(0,0,0,0.25)',
+                    transform: 'translateY(-2px)'
+                  },
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Nueva Mesa
+              </Button>
             </Box>
           )}
         </Box>

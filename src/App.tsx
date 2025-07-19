@@ -17,7 +17,7 @@ const NuevaVenta = React.lazy(() =>
   import('./pages/NuevaVenta').then(module => ({ default: module.default }))
 );
 const Productos = React.lazy(() => 
-  import('./pages/Productos').then(module => ({ default: module.default }))
+  import('./pages/ProductosSimplificado').then(module => ({ default: module.default }))
 );
 const Clientes = React.lazy(() => 
   import('./pages/Clientes').then(module => ({ default: module.default }))

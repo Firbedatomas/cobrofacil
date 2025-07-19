@@ -112,6 +112,7 @@ export interface Producto {
   descripcion?: string;
   precio: number;
   activo: boolean;
+  categoria?: string;
 }
 
 // Enums

@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:db\" --names \"🖥️ Backend,⚛️ Frontend,🗄️ Database\" --prefix-colors \"cyan,magenta,yellow\"",
+    "dev:app": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" --names \"🖥️ Backend,⚛️ Frontend\" --prefix-colors \"cyan,magenta\"",
     "dev:frontend": "vite --port 3002",
-    "dev:backend": "cd backend && npm start",
+    "dev:backend": "cd backend && npm run dev",
     "dev:db": "cd backend && npx prisma studio",
     "urls": "./mostrar-urls.sh",
     "start": "vite --port 3003",

@@ -18,6 +18,9 @@ import { Add, Edit, Save, Cancel, Visibility, Settings } from '@mui/icons-materi
 // Componentes
 import SectorTabs from './components/SectorTabs';
 import OcupacionGeneral from './components/OcupacionGeneral';
+
+// Servicios
+import { toastService } from '../../services/toastService';
 import MesaGridCanvas from './components/MesaGridCanvas';
 import FormularioSector from './components/FormularioSector';
 import FormularioMesa from './components/FormularioMesa';
@@ -29,7 +32,8 @@ import BloqueoTurno from '../../components/ProtectedRoute'; // Renombrado a Bloq
 
 // Servicios y tipos
 import { sectoresApi, mesasApi } from '../../services/mesasApi';
-import type { Sector, Mesa, EstadoMesa } from '../../types/mesas';
+import { EstadoMesa } from '../../types/mesas';
+import type { Sector, Mesa } from '../../types/mesas';
 
 // Interfaces para mozos
 interface Mozo {
@@ -71,6 +75,17 @@ const GestionMesas: React.FC = () => {
     message: '',
     severity: 'success' as 'success' | 'error' | 'warning' | 'info'
   });
+
+  // ✅ Integrar toastService con el sistema de notificaciones existente
+  useEffect(() => {
+    toastService.setHandler(({ message, type = 'success' }: any) => {
+      setNotificacion({
+        open: true,
+        message,
+        severity: type
+      });
+    });
+  }, []);
   
   // ==========================================
   // 🎯 SISTEMA DE CAMBIOS PENDIENTES
@@ -82,6 +97,92 @@ const GestionMesas: React.FC = () => {
     mesas: [],
     objetos: []
   });
+
+  // Función para obtener todas las mesas disponibles para transferir
+  const obtenerMesasDisponibles = () => {
+    const todasLasMesas: Mesa[] = [];
+    sectores.forEach(sector => {
+      if (sector.mesas) {
+        sector.mesas.forEach(mesa => {
+          // Excluir la mesa actual (origen) para transferir
+          if (mesa.id !== mesaSeleccionada?.id) {
+            todasLasMesas.push({
+              ...mesa,
+              sector: {
+                id: sector.id,
+                nombre: sector.nombre,
+                color: sector.color
+              }
+            });
+          }
+        });
+      }
+    });
+    return todasLasMesas;
+  };
+
+  // ==========================================
+  // 🎯 VALIDACIÓN AUTOMÁTICA DE ESTADOS SEGÚN @estadomesas.mdc
+  // ==========================================
+  const validarYCorregirEstadosMesas = async () => {
+    try {
+      console.log('🔍 Iniciando validación de estados de mesas...');
+      let mesasCorregidas = 0;
+      const { default: ventasActivasService } = await import('../../services/ventasActivasService');
+      
+      for (const sector of sectores) {
+        if (!sector.mesas) continue;
+        
+        for (const mesa of sector.mesas) {
+          try {
+            // Verificar si la mesa tiene ítems activos
+            const ventaActiva = await ventasActivasService.obtenerVentaActiva(mesa.id);
+            const tieneItems = ventaActiva && ventaActiva.items && ventaActiva.items.length > 0;
+            
+            // Determinar el estado correcto según @estadomesas.mdc
+            let estadoCorrector: EstadoMesa;
+            
+            if (tieneItems) {
+              // ✅ CRITERIO 2: Estado Rojo - Cualquier ítem cargado
+              estadoCorrector = EstadoMesa.OCUPADA;
+            } else {
+              // ✅ CRITERIO 2: Estado Verde - No hay ítems cargados
+              estadoCorrector = EstadoMesa.LIBRE;
+            }
+            
+            // Solo corregir si el estado no coincide
+            if (mesa.estado !== estadoCorrector) {
+              console.log(`🔧 Corrigiendo Mesa ${mesa.numero}: ${mesa.estado} → ${estadoCorrector}${tieneItems ? ' (tiene ítems)' : ' (sin ítems)'}`);
+              
+              // Actualizar en BD usando la función específica para cambiar estado
+              await mesasApi.cambiarEstado(mesa.id, estadoCorrector);
+              
+              // Actualizar estado local
+              handleCambiarEstadoMesa(mesa, estadoCorrector);
+              
+              mesasCorregidas++;
+            } else {
+              console.log(`✅ Mesa ${mesa.numero}: Estado correcto (${mesa.estado})`);
+            }
+            
+          } catch (error) {
+            console.error(`❌ Error validando mesa ${mesa.numero}:`, error);
+          }
+        }
+      }
+      
+      if (mesasCorregidas > 0) {
+        mostrarNotificacion(`Estados corregidos: ${mesasCorregidas} mesa${mesasCorregidas > 1 ? 's' : ''}`, 'success');
+        console.log(`✅ Validación completada: ${mesasCorregidas} mesas corregidas`);
+      } else {
+        console.log('✅ Validación completada: Todos los estados son correctos');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error en validación de estados:', error);
+      mostrarNotificacion('Error validando estados de mesas', 'error');
+    }
+  };
   
   // Estados de notificaciones
   const [snackbar, setSnackbar] = useState({
@@ -115,23 +216,19 @@ const GestionMesas: React.FC = () => {
           break;
         case 's':
           e.preventDefault();
-          setDialogoSector(true);
-          break;
-        case 'escape':
-          e.preventDefault();
-          if (modoEdicion) {
-            setModoEdicion(false);
-            mostrarNotificacion('Modo edición desactivado', 'info');
-          }
-          break;
-        case 'm':
-          e.preventDefault();
           if (sectorActivo) {
             const sectorSeleccionado = sectores.find(s => s.id === sectorActivo);
             if (sectorSeleccionado?.mesas && sectorSeleccionado.mesas.length > 0) {
               const primeramesa = sectorSeleccionado.mesas[0];
               handleGestionarMesa(primeramesa);
             }
+          }
+          break;
+        case 'escape':
+          e.preventDefault();
+          if (modoEdicion) {
+            setModoEdicion(false);
+            mostrarNotificacion('Modo edición desactivado', 'info');
           }
           break;
       }
@@ -204,6 +301,10 @@ const GestionMesas: React.FC = () => {
       }
       
       console.log(`✅ Sectores cargados exitosamente: ${sectoresData.length} sectores`);
+      
+      // ✅ VALIDACIÓN AUTOMÁTICA: Verificar y corregir estados según @estadomesas.mdc
+      // Ejecutar validación después de que los sectores estén en el estado
+      setTimeout(() => validarYCorregirEstadosMesas(), 1000);
     } catch (error: any) {
       console.error('❌ Error cargando sectores:', error);
       
@@ -384,80 +485,273 @@ const GestionMesas: React.FC = () => {
     setSectorActivo(sectorId);
   };
 
-  const handleGestionarMesa = (mesa: Mesa) => {
+  const handleGestionarMesa = async (mesa: Mesa) => {
     setMesaSeleccionada(mesa);
-    // Mostrar selección de mozo antes de abrir la venta
-    setMostrarSeleccionMozo(true);
+    
+    try {
+      // ✅ NUEVO SISTEMA: Verificar si ya hay un mozo asignado a esta mesa
+      const { default: asignacionesMozoService } = await import('../../services/asignacionesMozoService');
+      const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesa.id);
+      
+      if (mozoAsignado) {
+        // ✅ YA HAY MOZO ASIGNADO - Abrir directamente el modal de ventas
+        console.log('🎯 Mesa ya tiene mozo asignado:', `${mozoAsignado.nombre} ${mozoAsignado.apellido}`);
+        console.log('🚀 Abriendo modal de ventas directamente...');
+        
+        setPanelVentaMesa(true);
+        
+        mostrarNotificacion(
+          `Mesa ${mesa.numero} - Mozo: ${mozoAsignado.nombre} ${mozoAsignado.apellido}`,
+          'info'
+        );
+        
+      } else {
+        // ✅ NO HAY MOZO ASIGNADO - Mostrar modal de selección
+        console.log('🎯 Mesa sin mozo asignado, mostrando selección...');
+        setMostrarSeleccionMozo(true);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error verificando mozo asignado:', error);
+      // En caso de error, mostrar modal de selección como fallback
+      setMostrarSeleccionMozo(true);
+    }
   };
 
-  const handleSeleccionarMozo = async (mozo: Mozo) => {
+  // ==========================================
+  // 🎯 FUNCIÓN PARA VALIDAR UNA MESA INDIVIDUAL
+  // ==========================================
+  const validarEstadoMesaIndividual = async (mesaId: string) => {
     try {
-      // ✅ INTEGRACIÓN DE LÓGICA OPTIMIZADA: Garantizar venta activa
-      console.log('🚀 Iniciando selección optimizada de mozo:', { 
+      const { default: ventasActivasService } = await import('../../services/ventasActivasService');
+      
+      // Encontrar la mesa en los sectores
+      let mesaEncontrada: Mesa | null = null;
+      for (const sector of sectores) {
+        if (sector.mesas) {
+          const mesa = sector.mesas.find(m => m.id === mesaId);
+          if (mesa) {
+            mesaEncontrada = mesa;
+            break;
+          }
+        }
+      }
+      
+      if (!mesaEncontrada) return;
+      
+      // Verificar si la mesa tiene ítems activos
+      const ventaActiva = await ventasActivasService.obtenerVentaActiva(mesaId);
+      const tieneItems = ventaActiva && ventaActiva.items && ventaActiva.items.length > 0;
+      
+      // Determinar el estado correcto según @estadomesas.mdc
+      const estadoCorrector = tieneItems ? EstadoMesa.OCUPADA : EstadoMesa.LIBRE;
+      
+      // Solo corregir si el estado no coincide
+      if (mesaEncontrada.estado !== estadoCorrector) {
+        console.log(`🔧 Validación individual - Mesa ${mesaEncontrada.numero}: ${mesaEncontrada.estado} → ${estadoCorrector}`);
+        
+        // Actualizar en BD
+        await mesasApi.cambiarEstado(mesaId, estadoCorrector);
+        
+        // Actualizar estado local
+        handleCambiarEstadoMesa(mesaEncontrada, estadoCorrector);
+        
+        // ✅ CRÍTICO: Si la mesa queda LIBRE (sin productos), liberar automáticamente el mozo
+        if (estadoCorrector === EstadoMesa.LIBRE && !tieneItems) {
+          try {
+            const { default: asignacionesMozoService } = await import('../../services/asignacionesMozoService');
+            
+            // Verificar si hay mozo asignado
+            const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesaId);
+            
+            if (mozoAsignado) {
+              console.log(`🧹 Mesa ${mesaEncontrada.numero} vacía → Liberando mozo: ${mozoAsignado.nombre}`);
+              
+              // Liberar mozo automáticamente
+              await asignacionesMozoService.liberarMozo(
+                mesaId, 
+                'Mesa vacía - Liberación automática'
+              );
+              
+              console.log('✅ Mozo liberado automáticamente de mesa vacía');
+            }
+          } catch (mozoError) {
+            console.error('⚠️ Error liberando mozo de mesa vacía:', mozoError);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error validando mesa individual ${mesaId}:`, error);
+    }
+  };
+
+  // ✅ Función auxiliar para liberar mozo automáticamente cuando mesa quede vacía
+  const liberarMozoSiMesaVacia = async (mesaId: string, motivoLiberacion: string = 'Mesa vacía - Liberación automática') => {
+    try {
+      const { default: asignacionesMozoService } = await import('../../services/asignacionesMozoService');
+      const { default: ventasActivasService } = await import('../../services/ventasActivasService');
+      
+      // Verificar si la mesa tiene productos
+      const ventaActiva = await ventasActivasService.obtenerVentaActiva(mesaId);
+      const tieneItems = ventaActiva && ventaActiva.items && ventaActiva.items.length > 0;
+      
+      // Solo liberar si NO tiene productos
+      if (!tieneItems) {
+        const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesaId);
+        
+        if (mozoAsignado) {
+          console.log(`🧹 Liberando mozo automáticamente: ${mozoAsignado.nombre} de mesa vacía`);
+          
+          await asignacionesMozoService.liberarMozo(mesaId, motivoLiberacion);
+          
+          console.log('✅ Mozo liberado automáticamente - Mesa completamente limpia');
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('⚠️ Error liberando mozo automáticamente:', error);
+      return false;
+    }
+  };
+
+  // ✅ Función para validar múltiples mesas (para transferencias)
+  const validarMesasGlobal = async (mesaIds: string[]) => {
+    try {
+      console.log('🔍 Validando estados de múltiples mesas:', mesaIds);
+      
+      // Validar cada mesa individualmente
+      const promesasValidacion = mesaIds.map(mesaId => 
+        validarEstadoMesaIndividual(mesaId).catch(error => {
+          console.error(`Error validando mesa ${mesaId}:`, error);
+        })
+      );
+      
+      await Promise.allSettled(promesasValidacion);
+      
+      // Sincronizar vista después de validar
+      setTimeout(() => {
+        cargarSectores();
+      }, 300);
+      
+    } catch (error) {
+      console.error('❌ Error validando mesas globalmente:', error);
+    }
+  };
+
+  // ✅ NUEVO SISTEMA: Manejo de asignaciones mozo-mesa con persistencia inmediata
+  const handleSeleccionarMozo = async (mozo: Mozo): Promise<void> => {
+    try {
+      console.log('🚀 Iniciando asignación de mozo con nuevo sistema:', { 
         mozoId: mozo.id, 
         mesaId: mesaSeleccionada?.id 
       });
 
+      // Validaciones previas críticas
       if (!mesaSeleccionada) {
-        mostrarNotificacion('Error: No hay mesa seleccionada', 'error');
-        return;
+        throw new Error('No hay mesa seleccionada');
       }
 
-      // Importar dinámicamente el servicio (evitar imports circulares)
-      const { ventasActivasService } = await import('../../services/ventasActivasService');
-
-      // Criterio 1: Verificar existencia de venta activa
-      let ventaActiva = await ventasActivasService.obtenerVentaActiva(mesaSeleccionada.id);
-      
-      if (!ventaActiva) {
-        console.log('📝 No hay venta activa - Creando nueva venta');
-        
-        // Criterio 2: Crear venta activa si no existe
-        const nombreCompleto = `${mozo.nombre} ${mozo.apellido}`;
-        ventaActiva = await ventasActivasService.crearVentaActiva(mesaSeleccionada.id, nombreCompleto);
-        
-        console.log('✅ Venta activa creada:', ventaActiva.id);
-      } else {
-        console.log('✅ Venta activa existente encontrada:', ventaActiva.id);
+      if (!mozo || !mozo.id) {
+        throw new Error('Datos de mozo inválidos');
       }
 
-      // Criterio 3: Confirmar existencia de la venta
-      if (!ventaActiva) {
-        console.error('❌ No se pudo crear o encontrar la venta activa');
-        mostrarNotificacion('Error: No se pudo crear la venta activa', 'error');
-        return;
-      }
+      // Importar el nuevo servicio de asignaciones
+      const { default: asignacionesMozoService } = await import('../../services/asignacionesMozoService');
 
-      // ✅ FLUJO EXITOSO: Continuar con la apertura del panel
+      // CRITERIO 1: Persistencia inmediata del mozo vinculado a la mesa
+      const asignacion = await asignacionesMozoService.asignarMozo(
+        mesaSeleccionada.id,
+        mozo.id,
+        'Asignación desde selección de mozo'
+      );
+
+      console.log('✅ Mozo asignado exitosamente:', asignacion);
+
+      // ✅ FLUJO EXITOSO: Actualizar estados de manera consistente
       setMozoSeleccionado(mozo);
-      setMostrarSeleccionMozo(false);
       
-      // Criterio 4: Abrir panel de ventas con venta activa garantizada
+      // CRITERIO 6: Abrir panel de ventas automáticamente
+      console.log('🚀 Abriendo panel de ventas...', { mesaSeleccionada: mesaSeleccionada?.numero });
       setPanelVentaMesa(true);
+      console.log('✅ setPanelVentaMesa(true) ejecutado');
       
       // Mostrar notificación de éxito
       mostrarNotificacion(
-        `Mozo asignado: ${mozo.nombre} ${mozo.apellido} - Venta activa lista`,
+        `Mozo asignado: ${mozo.nombre} ${mozo.apellido} - Mesa lista para trabajar`,
         'success'
       );
 
-      console.log('🎯 Flujo completo exitoso - Panel de ventas abierto con venta activa');
+      console.log('🎯 Flujo completo exitoso - Panel de ventas abierto y mantenido automáticamente');
       
     } catch (error) {
-      console.error('❌ Error en selección optimizada de mozo:', error);
-      mostrarNotificacion('Error al asociar venta activa con mozo', 'error');
+      console.error('❌ Error en asignación de mozo:', error);
       
-      // En caso de error, cerrar modal de mozo pero NO abrir panel de ventas
-      setMostrarSeleccionMozo(false);
-      setMesaSeleccionada(null);
-      setMozoSeleccionado(null);
+      // Mostrar error específico al usuario
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      mostrarNotificacion(`Error: ${errorMessage}`, 'error');
+      
+      // ✅ IMPORTANTE: Re-lanzar el error para que handleSeleccionar no cierre el modal
+      throw error;
     }
   };
 
+  // ✅ MEJORADO: Limpieza inteligente al cerrar modal de selección
   const handleCerrarSeleccionMozo = () => {
+    console.log('🚪 Cerrando modal de selección de mozo');
+    
+    // Cerrar solo el modal de selección
     setMostrarSeleccionMozo(false);
-    setMesaSeleccionada(null);
-    setMozoSeleccionado(null);
+    
+    // ✅ CRÍTICO: NO limpiar mesaSeleccionada si el panel de ventas está abierto
+    // Esto permite mantener el flujo: seleccionar mozo → abrir panel de ventas
+    if (!panelVentaMesa) {
+      setMesaSeleccionada(null);
+      setMozoSeleccionado(null);
+      console.log('✅ Estados limpiados (panel de ventas no activo)');
+    } else {
+      console.log('✅ Estados mantenidos (panel de ventas activo)');
+    }
+  };
+
+  // ✅ NUEVA FUNCIÓN: Limpiar mozo de mesa (cuando se completa una venta)
+  const limpiarMozoMesa = async (mesaId: string) => {
+    try {
+      const { ventasActivasService } = await import('../../services/ventasActivasService');
+      
+      // Completar la venta activa (esto limpia el mozo)
+      await ventasActivasService.completarVenta(mesaId);
+      
+      console.log('✅ Mozo eliminado de mesa:', mesaId);
+      
+    } catch (error) {
+      console.error('❌ Error limpiando mozo de mesa:', error);
+    }
+  };
+
+  // ✅ NUEVA FUNCIÓN: Cambiar mozo de mesa (forzar selección nuevo mozo)
+  const cambiarMozoMesa = async (mesa: Mesa) => {
+    try {
+      console.log('🔄 Cambiando mozo de mesa:', mesa.numero);
+      
+      // Limpiar mozo actual
+      await limpiarMozoMesa(mesa.id);
+      
+      // Mostrar modal de selección nuevamente
+      setMesaSeleccionada(mesa);
+      setMostrarSeleccionMozo(true);
+      
+      mostrarNotificacion(
+        `Seleccione nuevo mozo para mesa ${mesa.numero}`,
+        'info'
+      );
+      
+    } catch (error) {
+      console.error('❌ Error cambiando mozo de mesa:', error);
+      mostrarNotificacion('Error al cambiar mozo de mesa', 'error');
+    }
   };
 
   const handleEditarMesa = (mesa: Mesa) => {
@@ -614,6 +908,11 @@ const GestionMesas: React.FC = () => {
     setPanelVentaMesa(false);
     setMesaSeleccionada(null);
     
+    // ✅ NUEVO: También cerrar el modal de selección de mozo si está abierto
+    // ya que ahora el panel de ventas se muestra dentro del mismo modal
+    setMostrarSeleccionMozo(false);
+    setMozoSeleccionado(null);
+    
     // Restaurar focus al canvas después de cerrar panel
     setTimeout(() => {
       if (canvasRef.current) {
@@ -661,6 +960,17 @@ const GestionMesas: React.FC = () => {
                   size="small"
                 >
                   Nuevo Sector
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  startIcon={<Settings />}
+                  onClick={validarYCorregirEstadosMesas}
+                  size="small"
+                  color="warning"
+                  title="Validar y corregir estados de mesas según ítems cargados"
+                >
+                  Validar Estados
                 </Button>
                 
                 {sectorActivo && (
@@ -830,8 +1140,31 @@ const GestionMesas: React.FC = () => {
           sectorId={sectorActivo!}
           onGuardar={async (mesa: any) => {
             try {
+              // ✅ DEBUGGING: Log detallado de los datos recibidos
+              console.log('🚀 GestionMesas - Recibiendo datos para guardar mesa:', {
+                mesa,
+                mesaEditando: !!mesaEditando,
+                sectorActivo,
+                tipoSectorActivo: typeof sectorActivo,
+                sectorActivoVacio: !sectorActivo
+              });
+
+              // ✅ CORREGIDO: Validación previa antes de enviar a la API
+              if (!mesa.sectorId) {
+                console.error('❌ Error crítico: sectorId no está presente en los datos:', mesa);
+                mostrarNotificacion('Error: Sector no válido. Cierre el modal y vuelva a intentarlo.', 'error');
+                return;
+              }
+
+              if (!mesa.numero || !mesa.numero.trim()) {
+                console.error('❌ Error crítico: número de mesa no está presente:', mesa);
+                mostrarNotificacion('Error: Número de mesa es requerido.', 'error');
+                return;
+              }
+
               if (mesaEditando) {
                 // Actualizar mesa existente
+                console.log('🔄 Actualizando mesa existente:', mesaEditando.id);
                 const mesaActualizada = await mesasApi.actualizar(mesaEditando.id, mesa);
                 setSectores(sectores.map(s => ({
                   ...s,
@@ -840,7 +1173,18 @@ const GestionMesas: React.FC = () => {
                 mostrarNotificacion('Mesa actualizada exitosamente', 'success');
               } else {
                 // Crear nueva mesa
+                console.log('📝 Creando nueva mesa con datos:', mesa);
+                
+                // ✅ CORREGIDO: Validación adicional para nueva mesa
+                if (!sectorActivo) {
+                  console.error('❌ Error crítico: sectorActivo no está presente');
+                  mostrarNotificacion('Error: No hay sector activo seleccionado', 'error');
+                  return;
+                }
+
                 const nuevaMesa = await mesasApi.crear(mesa);
+                console.log('✅ Mesa creada exitosamente:', nuevaMesa);
+                
                 setSectores(sectores.map(s => 
                   s.id === sectorActivo 
                     ? { ...s, mesas: [...(s.mesas || []), nuevaMesa] }
@@ -857,9 +1201,38 @@ const GestionMesas: React.FC = () => {
                   canvasRef.current.focus();
                 }
               }, 100);
-            } catch (error) {
-              console.error('Error guardando mesa:', error);
-              mostrarNotificacion('Error al guardar la mesa', 'error');
+            } catch (error: any) {
+              // ✅ DEBUGGING: Log detallado del error
+              console.error('❌ Error guardando mesa:', error);
+              console.error('❌ Datos que causaron el error:', {
+                mesa,
+                mesaEditando: !!mesaEditando,
+                sectorActivo,
+                errorResponse: error.response?.data,
+                errorStatus: error.response?.status,
+                errorMessage: error.message
+              });
+              
+              // ✅ CORREGIDO: Manejo específico de errores
+              if (error.response?.status === 400) {
+                const errorMessage = error.response.data?.error || 'Error de validación';
+                console.error('❌ Error de validación del servidor:', errorMessage);
+                mostrarNotificacion(`Error de validación: ${errorMessage}`, 'error');
+              } else if (error.response?.status === 401) {
+                console.error('❌ Error de autenticación');
+                mostrarNotificacion('Sesión expirada. Inicie sesión nuevamente.', 'error');
+                localStorage.removeItem('authToken');
+                window.location.href = '/login';
+              } else if (error.response?.status === 409) {
+                console.error('❌ Error de conflicto (mesa duplicada)');
+                mostrarNotificacion('Ya existe una mesa con ese número en el sector', 'error');
+              } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+                console.error('❌ Error de red');
+                mostrarNotificacion('Error de conexión. Verifique su conexión a internet.', 'error');
+              } else {
+                console.error('❌ Error desconocido');
+                mostrarNotificacion('Error al guardar la mesa. Intente nuevamente.', 'error');
+              }
             }
           }}
           onCancelar={() => {
@@ -933,7 +1306,7 @@ const GestionMesas: React.FC = () => {
       )}
 
       {/* Panel de gestión de mesa */}
-      {panelVentaMesa && mesaSeleccionada && (
+      {panelVentaMesa && mesaSeleccionada && !mostrarSeleccionMozo && (
         <VentaIntegralV2
           mesa={mesaSeleccionada}
           isOpen={panelVentaMesa}
@@ -944,18 +1317,51 @@ const GestionMesas: React.FC = () => {
           onVentaCompleta={(venta: any) => {
             console.log('Venta completada:', venta);
             handleCerrarPanelVenta();
+            // ✅ Liberar mozo inmediatamente al completar venta
+            setTimeout(() => liberarMozoSiMesaVacia(mesaSeleccionada.id, 'Venta completada y cobrada'), 300);
+            // ✅ Validar estado después de completar venta
+            setTimeout(() => validarEstadoMesaIndividual(mesaSeleccionada.id), 500);
           }}
+          mesasDisponibles={obtenerMesasDisponibles()}
+          onValidarEstado={() => validarEstadoMesaIndividual(mesaSeleccionada.id)}
+          onValidarMesasGlobal={validarMesasGlobal}
         />
       )}
 
-      {/* Selección de mozo */}
+      {/* Selección de mozo o Panel de ventas */}
       {mostrarSeleccionMozo && mesaSeleccionada && (
-        <SeleccionMozo
-          open={mostrarSeleccionMozo}
-          onClose={handleCerrarSeleccionMozo}
-          onSeleccionar={handleSeleccionarMozo}
-          usuarioActual={usuarioActual}
-        />
+        <>
+          {/* Si ya se seleccionó mozo y se abrió el panel de ventas, mostrar el panel de ventas */}
+          {panelVentaMesa ? (
+            <VentaIntegralV2
+              mesa={mesaSeleccionada}
+              isOpen={true}
+              onClose={handleCerrarPanelVenta}
+              onCambiarEstado={(mesa: Mesa, nuevoEstado: EstadoMesa) => {
+                handleCambiarEstadoMesa(mesa, nuevoEstado);
+              }}
+              onVentaCompleta={(venta: any) => {
+                console.log('Venta completada:', venta);
+                handleCerrarPanelVenta();
+                // ✅ Liberar mozo inmediatamente al completar venta
+                setTimeout(() => liberarMozoSiMesaVacia(mesaSeleccionada.id, 'Venta completada y cobrada'), 300);
+                // ✅ Validar estado después de completar venta
+                setTimeout(() => validarEstadoMesaIndividual(mesaSeleccionada.id), 500);
+              }}
+              mesasDisponibles={obtenerMesasDisponibles()}
+              onValidarEstado={() => validarEstadoMesaIndividual(mesaSeleccionada.id)}
+              onValidarMesasGlobal={validarMesasGlobal}
+            />
+          ) : (
+            /* Si no se ha seleccionado mozo, mostrar el selector de mozo */
+            <SeleccionMozo
+              open={true}
+              onClose={handleCerrarSeleccionMozo}
+              onSeleccionar={handleSeleccionarMozo}
+              usuarioActual={usuarioActual}
+            />
+          )}
+        </>
       )}
 
       {/* Snackbar para notificaciones */}

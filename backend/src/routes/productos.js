@@ -21,20 +21,14 @@ const validacionProducto = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage('El precio debe ser un número positivo o cero'),
-  body('stock')
-    .optional()
-    .isInt({ min: 0 })
-    .withMessage('El stock debe ser un número entero positivo'),
-  body('stockMinimo')
-    .optional()
-    .isInt({ min: 0 })
-    .withMessage('El stock mínimo debe ser un número entero positivo'),
-  body('categoriaId')
-    .notEmpty()
-    .withMessage('La categoría es requerida'),
-  body('descripcion')
+  body('comandera')
     .optional()
     .trim()
+    .isIn(['cocina', 'salon', 'barra', ''])
+    .withMessage('La comandera debe ser: cocina, salon, barra o vacío'),
+  body('categoriaId')
+    .notEmpty()
+    .withMessage('La categoría es requerida')
 ];
 
 // GET /api/productos - Listar productos con filtros y paginación
@@ -129,6 +123,88 @@ router.get('/', verificarToken, [
 
   } catch (error) {
     console.error('Error obteniendo productos:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
+// GET /api/productos/buscar - Búsqueda específica de productos
+router.get('/buscar', verificarToken, [
+  query('limite')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('El límite debe estar entre 1 y 100'),
+  query('termino')
+    .optional()
+    .trim(),
+  query('categoria')
+    .optional()
+    .trim(),
+  query('activo')
+    .optional()
+    .isBoolean()
+    .withMessage('El estado activo debe ser verdadero o falso')
+], async (req, res) => {
+  try {
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return res.status(400).json({
+        error: 'Parámetros de consulta inválidos',
+        detalles: errores.array()
+      });
+    }
+
+    const limite = parseInt(req.query.limite) || 20;
+    const termino = req.query.termino;
+    const categoria = req.query.categoria;
+    const activo = req.query.activo !== undefined ? req.query.activo === 'true' : undefined;
+
+    // Construir filtros
+    const where = {};
+    
+    if (activo !== undefined) {
+      where.activo = activo;
+    }
+
+    if (categoria) {
+      where.categoriaId = categoria;
+    }
+
+    if (termino) {
+      where.OR = [
+        { nombre: { contains: termino, mode: 'insensitive' } },
+        { codigo: { contains: termino, mode: 'insensitive' } }
+      ];
+    }
+
+    // Obtener productos con el límite especificado
+    const productos = await prisma.producto.findMany({
+      where,
+      include: {
+        categoria: {
+          select: {
+            id: true,
+            nombre: true
+          }
+        }
+      },
+      orderBy: {
+        nombre: 'asc'
+      },
+      take: limite
+    });
+
+    const total = productos.length;
+
+    res.status(200).json({
+      productos,
+      total,
+      hasMore: productos.length === limite
+    });
+
+  } catch (error) {
+    console.error('Error en búsqueda de productos:', error);
     res.status(500).json({
       error: 'Error interno del servidor'
     });
@@ -372,22 +448,29 @@ router.get('/:id', verificarToken, [
 // POST /api/productos - Crear nuevo producto
 router.post('/', verificarToken, validacionProducto, async (req, res) => {
   try {
+    console.log('🚀 Iniciando creación de producto:', req.body);
+    
     const errores = validationResult(req);
     if (!errores.isEmpty()) {
+      console.log('❌ Errores de validación:', errores.array());
       return res.status(400).json({
         error: 'Datos de entrada inválidos',
         detalles: errores.array()
       });
     }
 
-    const { codigo, nombre, descripcion, precio = 0, stock = 0, stockMinimo = 5, categoriaId } = req.body;
+    const { codigo, nombre, precio = 0, comandera, categoriaId } = req.body;
+    console.log('📋 Datos procesados:', { codigo, nombre, precio, comandera, categoriaId });
 
     // Verificar que la categoría existe
+    console.log('🔍 Verificando categoría:', categoriaId);
     const categoria = await prisma.categoria.findUnique({
       where: { id: categoriaId, activa: true }
     });
+    console.log('📂 Categoría encontrada:', categoria);
 
     if (!categoria) {
+      console.log('❌ Categoría no encontrada');
       return res.status(400).json({
         error: 'Categoría no válida'
       });
@@ -419,47 +502,50 @@ router.post('/', verificarToken, validacionProducto, async (req, res) => {
       });
     }
 
-    // Crear producto en una transacción
-    const resultado = await prisma.$transaction(async (tx) => {
-      // Crear producto
-      const nuevoProducto = await tx.producto.create({
-        data: {
-          codigo: codigoFinal,
-          nombre,
-          descripcion,
-          precio,
-          stock,
-          stockMinimo,
-          categoriaId
-        },
-        include: {
-          categoria: {
-            select: {
-              id: true,
-              nombre: true
-            }
+    // Crear producto (sin transacción por ahora)
+    console.log('💾 Creando producto con datos:', {
+      codigo: codigoFinal,
+      nombre,
+      precio,
+      comandera,
+      categoriaId
+    });
+    
+    const nuevoProducto = await prisma.producto.create({
+      data: {
+        codigo: codigoFinal,
+        nombre,
+        precio,
+        comandera,
+        categoriaId
+      },
+      include: {
+        categoria: {
+          select: {
+            id: true,
+            nombre: true
           }
         }
-      });
-
-      // Crear movimiento de stock inicial si hay stock
-      if (stock > 0) {
-        await tx.movimientoStock.create({
-          data: {
-            productoId: nuevoProducto.id,
-            tipo: 'ENTRADA',
-            cantidad: stock,
-            motivo: 'Stock inicial'
-          }
-        });
       }
-
-      return nuevoProducto;
     });
+    
+    console.log('✅ Producto creado exitosamente:', nuevoProducto);
+
+    // TODO: Implementar modelo MovimientoStock en el futuro
+    // if (stock > 0) {
+    //   await prisma.movimientoStock.create({
+    //     data: {
+    //       productoId: nuevoProducto.id,
+    //       tipo: 'ENTRADA',
+    //       cantidad: stock,
+    //       motivo: 'Stock inicial'
+    //     }
+    //   });
+    // }
 
     res.status(201).json({
       message: 'Producto creado exitosamente',
-      producto: resultado
+      producto: nuevoProducto
     });
 
   } catch (error) {

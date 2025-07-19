@@ -254,9 +254,10 @@ router.post('/', verificarToken, validacionVenta, async (req, res) => {
           throw new Error(`Producto ${item.productoId} no encontrado o inactivo`);
         }
 
-        if (producto.stock < item.cantidad) {
-          throw new Error(`Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock}`);
-        }
+        // Nota: Sistema simplificado sin control de stock
+        // if (producto.stock < item.cantidad) {
+        //   throw new Error(`Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock}`);
+        // }
 
         const subtotalItem = item.cantidad * item.precio;
         subtotal += subtotalItem;
@@ -302,25 +303,25 @@ router.post('/', verificarToken, validacionVenta, async (req, res) => {
           }
         });
 
-        // Actualizar stock del producto
-        await tx.producto.update({
-          where: { id: item.producto.id },
-          data: {
-            stock: {
-              decrement: item.cantidad
-            }
-          }
-        });
+        // Nota: Sistema simplificado sin control de stock
+        // await tx.producto.update({
+        //   where: { id: item.producto.id },
+        //   data: {
+        //     stock: {
+        //       decrement: item.cantidad
+        //     }
+        //   }
+        // });
 
-        // Registrar movimiento de stock
-        await tx.movimientoStock.create({
-          data: {
-            productoId: item.producto.id,
-            tipo: 'VENTA',
-            cantidad: item.cantidad,
-            motivo: `Venta #${numeroVenta}`
-          }
-        });
+        // Nota: Sistema simplificado sin movimientos de stock
+        // await tx.movimientoStock.create({
+        //   data: {
+        //     productoId: item.producto.id,
+        //     tipo: 'VENTA',
+        //     cantidad: item.cantidad,
+        //     motivo: `Venta #${numeroVenta}`
+        //   }
+        // });
       }
 
       return nuevaVenta;
@@ -438,9 +439,10 @@ router.post('/mesa', verificarToken, [
           throw new Error(`Producto ${item.productoId} no encontrado o inactivo`);
         }
 
-        if (producto.stock < item.cantidad) {
-          throw new Error(`Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock}`);
-        }
+        // Nota: Sistema simplificado sin control de stock
+        // if (producto.stock < item.cantidad) {
+        //   throw new Error(`Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock}`);
+        // }
 
         const subtotalItem = item.cantidad * item.precio;
         subtotal += subtotalItem;
@@ -491,15 +493,15 @@ router.post('/mesa', verificarToken, [
         
         detallesVenta.push(detalle);
 
-        // Actualizar stock del producto
-        await tx.producto.update({
-          where: { id: item.producto.id },
-          data: {
-            stock: {
-              decrement: item.cantidad
-            }
-          }
-        });
+        // Nota: Sistema simplificado sin control de stock
+        // await tx.producto.update({
+        //   where: { id: item.producto.id },
+        //   data: {
+        //     stock: {
+        //       decrement: item.cantidad
+        //     }
+        //   }
+        // });
       }
 
       return {
@@ -772,27 +774,27 @@ router.patch('/:id/cancelar', verificarToken, [
         data: { estado: 'CANCELADA' }
       });
 
-      // Restaurar stock de todos los productos
-      for (const detalle of venta.detalles) {
-        await tx.producto.update({
-          where: { id: detalle.productoId },
-          data: {
-            stock: {
-              increment: detalle.cantidad
-            }
-          }
-        });
+      // Nota: Sistema simplificado sin control de stock
+      // for (const detalle of venta.detalles) {
+      //   await tx.producto.update({
+      //     where: { id: detalle.productoId },
+      //     data: {
+      //       stock: {
+      //         increment: detalle.cantidad
+      //       }
+      //     }
+      //   });
 
-        // Registrar movimiento de stock
-        await tx.movimientoStock.create({
-          data: {
-            productoId: detalle.productoId,
-            tipo: 'DEVOLUCION',
-            cantidad: detalle.cantidad,
-            motivo: `Cancelación venta #${venta.numeroVenta}: ${motivo}`
-          }
-        });
-      }
+      //   // Registrar movimiento de stock
+      //   await tx.movimientoStock.create({
+      //     data: {
+      //       productoId: detalle.productoId,
+      //       tipo: 'DEVOLUCION',
+      //       cantidad: detalle.cantidad,
+      //       motivo: `Cancelación venta #${venta.numeroVenta}: ${motivo}`
+      //     }
+      //   });
+      // }
     });
 
     res.status(200).json({
@@ -929,13 +931,7 @@ router.post('/:ventaId/productos', verificarToken, [
       });
     }
 
-    // Verificar stock
-    if (producto.stock < cantidad) {
-      return res.status(400).json({
-        success: false,
-        error: `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stock}`
-      });
-    }
+    // Nota: Sistema simplificado sin control de stock
 
     // Procesar en transacción
     const resultado = await prisma.$transaction(async (tx) => {
@@ -972,15 +968,15 @@ router.post('/:ventaId/productos', verificarToken, [
         });
       }
 
-      // Actualizar stock del producto
-      await tx.producto.update({
-        where: { id: productoId },
-        data: {
-          stock: {
-            decrement: cantidad
-          }
-        }
-      });
+      // Nota: Sistema simplificado sin control de stock
+      // await tx.producto.update({
+      //   where: { id: productoId },
+      //   data: {
+      //     stock: {
+      //       decrement: cantidad
+      //     }
+      //   }
+      // });
 
       // Recalcular totales de la venta
       const totalDetalles = await tx.detalleVenta.aggregate({
@@ -1090,9 +1086,10 @@ router.get('/mesa/:mesaId', verificarToken, [
     });
 
     if (!venta) {
-      return res.status(404).json({
-        success: false,
-        error: 'No hay venta activa para esta mesa'
+      return res.status(200).json({
+        success: true,
+        data: null,
+        message: 'No hay venta activa para esta mesa'
       });
     }
 

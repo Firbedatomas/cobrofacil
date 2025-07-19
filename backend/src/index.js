@@ -38,6 +38,7 @@ import chequesRoutes from './routes/cheques.js';
 import sectoresRoutes from './routes/sectores.js';
 import mesasRoutes from './routes/mesas.js';
 import objetosDecorativosRoutes from './routes/objetos-decorativos.js';
+import asignacionesMozoRoutes from './routes/asignaciones-mozo.js';
 
 // Rutas de red
 import networkRoutes from './routes/network.js';
@@ -140,6 +141,7 @@ app.use('/api/cheques', chequesRoutes);
 app.use('/api/sectores', sectoresRoutes);
 app.use('/api/mesas', mesasRoutes);
 app.use('/api/objetos-decorativos', objetosDecorativosRoutes);
+app.use('/api/asignaciones-mozo', asignacionesMozoRoutes);
 
 // Rutas de red
 app.use('/api/network', networkRoutes);

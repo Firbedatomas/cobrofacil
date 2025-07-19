@@ -1,0 +1,109 @@
+---
+alwaysApply: true
+---
+📋 FLUJO COMPLETO DE PRODUCTOS RECOMENDADOS - Sistema Implementado
+🎯 Concepto General
+Sistema que muestra automáticamente 6 productos sugeridos en el panel de ventas de mesas para acelerar el proceso de venta y mejorar la experiencia del usuario.
+🔄 Flujo Funcional Paso a Paso
+1. Activación Automática
+Cuándo se activa: Al abrir el modal de ventas de cualquier mesa
+Ubicación: Inmediatamente después del campo de búsqueda de productos
+Identificación visual: Título "📍 Productos Recomendados"
+2. Obtención de Datos
+Fuente: Base de datos del sistema (tabla productos)
+Criterios de selección:
+Solo productos activos
+Ordenados alfabéticamente
+Máximo 6 productos
+Momento: Se cargan una sola vez al abrir el modal
+3. Visualización
+Layout: Grid responsivo de 2 columnas
+Información por producto:
+Nombre del producto (se trunca si es muy largo)
+Precio en formato $[monto]
+Botón "+" para agregar
+4. Interactividad
+Efectos visuales: Hover con elevación y cambio de color
+Doble acción: Se puede hacer click en toda la tarjeta O solo en el botón "+"
+Respuesta inmediata: Feedback visual al agregar producto
+5. Lógica de Visibilidad
+Se muestran: Cuando el campo de búsqueda está vacío
+Se ocultan: Cuando el usuario está escribiendo en la búsqueda
+Propósito: No interferir con la búsqueda manual activa
+🔄 Integración con Sistema de Ventas
+Validaciones Previas
+Mesa válida: Debe haber una mesa seleccionada
+Mozo asignado: Verificación obligatoria antes de permitir ventas
+Estado compatible: La mesa debe permitir agregar productos
+Proceso de Agregado
+Click en producto recomendado
+Validación automática de requisitos
+Agregado al carrito con cantidad 1
+Actualización de estado de mesa si es necesario
+Confirmación visual con notificación de éxito
+Cambios de Estado de Mesa
+Mesa Verde (LIBRE): Al agregar primer producto → cambia automáticamente a Roja (OCUPADA)
+Mesa Roja (OCUPADA): Al agregar productos → suma a la venta existente
+Mesa Azul (FACTURADA): Productos visibles pero requiere completar cobro primero
+🎯 Beneficios del Sistema
+Para el Usuario
+Velocidad: Acceso inmediato a productos populares
+Facilidad: Un solo click para agregar productos
+Eficiencia: Menos búsquedas manuales necesarias
+Intuitividad: Funcionamiento natural y predecible
+Para el Negocio
+Ventas más rápidas: Reducción del tiempo por mesa
+Promoción automática: Los productos más accesibles se venden más
+Menos errores: Productos predefinidos reducen confusiones
+Flujo optimizado: Proceso de venta más fluido
+Para el Sistema
+Performance: Carga única por sesión
+Consistencia: Misma lógica que búsqueda manual
+Robustez: Manejo completo de errores
+Escalabilidad: Fácil ajustar cantidad o criterios
+🔧 Arquitectura Técnica
+Frontend
+Componente: Integrado en VentaIntegralV2
+Estados: Productos recomendados, estado de carga, errores
+Servicios: Reutiliza servicio de productos existente
+UX: Material-UI con efectos de transición
+Backend
+API: Nueva ruta /productos/buscar específica
+Base de datos: Consulta optimizada con Prisma ORM
+Validaciones: Parámetros validados con express-validator
+Seguridad: Autenticación JWT obligatoria
+Flujo de Datos
+Frontend solicita productos al abrir modal
+API consulta base de datos con filtros
+Backend retorna productos en formato JSON
+Frontend adapta datos y los almacena en estado
+Renderizado condicional basado en búsqueda activa
+📊 Especificaciones Técnicas
+Criterios de Selección
+Cantidad: Exactamente 6 productos
+Filtro: Solo productos activos (activo = true)
+Orden: Alfabético ascendente por nombre
+Límite de tiempo: Timeout de 10 segundos para petición
+Estados de Carga
+Cargando: Indicador visual durante petición
+Éxito: Productos mostrados normalmente
+Error: Notificación de error, sección oculta
+Vacío: Si no hay productos, no se muestra nada
+Optimizaciones
+Cache: Productos se guardan en memoria durante sesión
+Lazy loading: Servicios pesados se cargan solo cuando se necesitan
+Debounce: Evita recargas innecesarias
+Adaptación: Conversión automática de tipos de datos
+🎯 Resultado Operativo
+Experiencia del Usuario Final
+Abre mesa → Modal de ventas aparece
+Ve productos recomendados → Inmediatamente debajo del buscador
+Hace click en producto → Se agrega instantáneamente al carrito
+Mesa cambia de estado → Visual feedback del cambio
+Puede seguir agregando → O buscar otros productos manualmente
+Integración Perfecta
+No interrumpe el flujo de trabajo existente
+Complementa la búsqueda manual
+Acelera las ventas más comunes
+Mantiene toda la funcionalidad anterior
+Agrega valor sin complejidad adicional

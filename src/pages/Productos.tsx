@@ -64,20 +64,14 @@ import { productosService, type ProductoCompleto } from '../services/productosSe
 
 interface Producto {
   id: string;
+  codigo: string;
   nombre: string;
   precio: number;
   categoria: string; // Siempre string, convertido desde el backend
-  stock: number;
-  descripcion?: string;
-  proveedor?: string;
-  codigoBarras?: string;
+  comandera?: string;
   fechaCreacion: string;
   fechaActualizacion: string;
   ventasTotal?: number;
-  stockMinimo: number;
-  stockMaximo: number;
-  ubicacion?: string;
-  imagen?: string;
 }
 
 interface TabPanelProps {
@@ -117,22 +111,18 @@ const Productos = () => {
   const [tabValue, setTabValue] = useState(0);
 
   const [formProducto, setFormProducto] = useState({
+    codigo: '',
     nombre: '',
     precio: 0,
     categoria: '',
-    stock: 0,
-    descripcion: '',
-    proveedor: '',
-    codigoBarras: '',
-    stockMinimo: 0,
-    stockMaximo: 0,
-    ubicacion: ''
+    comandera: ''
   });
 
   const [categorias, setCategorias] = useState<string[]>(['Todas']);
   const [categoriasCompletas, setCategoriasCompletas] = useState<{ id: string; nombre: string }[]>([]);
   const [nuevaCategoria, setNuevaCategoria] = useState('');
   const [mostrarCrearCategoria, setMostrarCrearCategoria] = useState(false);
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
 
   // Función helper para obtener el nombre de la categoría
   const obtenerNombreCategoria = (categoria: string): string => {
@@ -195,6 +185,53 @@ const Productos = () => {
     }
   };
 
+  const crearNuevaCategoria = async () => {
+    if (!nuevaCategoria.trim()) {
+      setSnackbarMessage('El nombre de la categoría no puede estar vacío');
+      setSnackbarOpen(true);
+      return;
+    }
+
+    try {
+      setCreandoCategoria(true);
+      
+      // Crear categoría en el backend
+      const categoriaCreada = await productosService.crearCategoria({
+        nombre: nuevaCategoria.trim()
+      });
+
+      // Actualizar ambos arrays
+      const categoriasActualizadas = [...categorias, categoriaCreada.nombre];
+      const categoriasCompletasActualizadas = [...categoriasCompletas, categoriaCreada];
+      
+      setCategorias(categoriasActualizadas);
+      setCategoriasCompletas(categoriasCompletasActualizadas);
+      
+      // Seleccionar la nueva categoría automáticamente
+      setFormProducto(prev => ({ ...prev, categoria: categoriaCreada.nombre }));
+      
+      // Limpiar y ocultar el formulario
+      setNuevaCategoria('');
+      setMostrarCrearCategoria(false);
+      
+      setSnackbarMessage('Categoría creada exitosamente');
+      setSnackbarOpen(true);
+      
+    } catch (error: any) {
+      console.error('Error creando categoría:', error);
+      
+      // Mostrar error específico del backend
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          'Error al crear categoría';
+      
+      setSnackbarMessage(errorMessage);
+      setSnackbarOpen(true);
+    } finally {
+      setCreandoCategoria(false);
+    }
+  };
+
   const productosFiltrados = productos.filter(producto => {
     const nombreCategoria = obtenerNombreCategoria(producto.categoria);
     const matchBusqueda = producto.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -215,31 +252,21 @@ const Productos = () => {
       setModoEdicion(true);
       setProductoEditando(producto);
       setFormProducto({
+        codigo: producto.codigo,
         nombre: producto.nombre,
         precio: producto.precio,
         categoria: obtenerNombreCategoria(producto.categoria),
-        stock: producto.stock,
-        descripcion: producto.descripcion || '',
-        proveedor: producto.proveedor || '',
-        codigoBarras: producto.codigoBarras || '',
-        stockMinimo: producto.stockMinimo,
-        stockMaximo: producto.stockMaximo,
-        ubicacion: producto.ubicacion || ''
+        comandera: producto.comandera || ''
       });
     } else {
       setModoEdicion(false);
       setProductoEditando(null);
       setFormProducto({
+        codigo: '',
         nombre: '',
         precio: 0,
         categoria: '',
-        stock: 0,
-        descripcion: '',
-        proveedor: '',
-        codigoBarras: '',
-        stockMinimo: 0,
-        stockMaximo: 0,
-        ubicacion: ''
+        comandera: ''
       });
     }
     setOpenDialog(true);
@@ -254,6 +281,8 @@ const Productos = () => {
     setOpenDialog(false);
     setModoEdicion(false);
     setProductoEditando(null);
+    setMostrarCrearCategoria(false);
+    setNuevaCategoria('');
   };
 
   const handleGuardar = async () => {
@@ -278,7 +307,7 @@ const Productos = () => {
         // Buscar el ID de la categoría seleccionada
         const categoriaSeleccionada = categoriasCompletas.find(c => c.nombre === formProducto.categoria);
         if (!categoriaSeleccionada) {
-          setSnackbarMessage('Categoría no válida');
+          setSnackbarMessage('Categoría no válida. Por favor, seleccione una categoría válida.');
           setSnackbarOpen(true);
           return;
         }
@@ -286,12 +315,10 @@ const Productos = () => {
         // Crear nuevo producto usando la API
         const nuevoProducto = {
           nombre: formProducto.nombre.trim(),
-          descripcion: formProducto.descripcion?.trim() || undefined,
           precio: formProducto.precio || 0,
-          stock: formProducto.stock || 0,
-          stockMinimo: formProducto.stockMinimo || 5,
+          comandera: formProducto.comandera?.trim() || undefined,
           categoriaId: categoriaSeleccionada.id,
-          codigo: formProducto.codigoBarras?.trim() || undefined // Opcional - se autogenera si no se proporciona
+          codigo: formProducto.codigo?.trim() || undefined // Opcional - se autogenera si no se proporciona
         };
         
         // Crear producto usando el servicio
@@ -970,38 +997,31 @@ const Productos = () => {
                   <Typography variant="subtitle2" gutterBottom>
                     Nueva Categoría
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
+                    La categoría se creará automáticamente y se seleccionará para este producto.
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
                     <TextField
                       size="small"
                       label="Nombre de la categoría"
                       value={nuevaCategoria}
                       onChange={(e) => setNuevaCategoria(e.target.value)}
                       sx={{ flex: 1 }}
+                      disabled={creandoCategoria}
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter' && nuevaCategoria.trim()) {
-                          const categoriasActualizadas = [...categorias, nuevaCategoria.trim()];
-                          setCategorias(categoriasActualizadas);
-                          setFormProducto(prev => ({ ...prev, categoria: nuevaCategoria.trim() }));
-                          setNuevaCategoria('');
-                          setMostrarCrearCategoria(false);
+                        if (e.key === 'Enter' && nuevaCategoria.trim() && !creandoCategoria) {
+                          crearNuevaCategoria();
                         }
                       }}
                     />
                     <Button
                       size="small"
                       variant="contained"
-                      onClick={() => {
-                        if (nuevaCategoria.trim()) {
-                          const categoriasActualizadas = [...categorias, nuevaCategoria.trim()];
-                          setCategorias(categoriasActualizadas);
-                          setFormProducto(prev => ({ ...prev, categoria: nuevaCategoria.trim() }));
-                          setNuevaCategoria('');
-                          setMostrarCrearCategoria(false);
-                        }
-                      }}
-                      disabled={!nuevaCategoria.trim()}
+                      onClick={crearNuevaCategoria}
+                      disabled={!nuevaCategoria.trim() || creandoCategoria}
+                      startIcon={creandoCategoria ? <CircularProgress size={16} /> : undefined}
                     >
-                      Crear
+                      {creandoCategoria ? 'Creando...' : 'Crear'}
                     </Button>
                     <Button
                       size="small"
@@ -1009,6 +1029,7 @@ const Productos = () => {
                         setMostrarCrearCategoria(false);
                         setNuevaCategoria('');
                       }}
+                      disabled={creandoCategoria}
                     >
                       Cancelar
                     </Button>

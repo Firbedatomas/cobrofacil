@@ -77,15 +77,57 @@ export const useVentaHandlers = () => {
   };
 
   // Handler para transferir
-  const handleTransferir = async (ventaId: string, destino: string, items?: string[]) => {
+  const handleTransferir = async (mesaOrigenId: string, mesaDestinoId: string, items?: string[], transferirTodos: boolean = true) => {
     try {
-      const response = await api.post(`/ventas/${ventaId}/transferir`, {
-        destino,
-        items
+      // ✅ 1. Transferir productos (como antes)
+      const response = await api.post(`/mesas/${mesaOrigenId}/transferir`, {
+        mesaDestinoId,
+        itemsIds: items,
+        transferirTodos
       });
-      toastService.success('Transferencia realizada');
+
+      // ✅ 2. Si es transferencia completa, transferir también el mozo
+      if (transferirTodos) {
+        try {
+          const { default: asignacionesMozoService } = await import('../../../services/asignacionesMozoService');
+          
+          // Obtener mozo asignado a mesa origen
+          const mozoAsignado = await asignacionesMozoService.obtenerMozoAsignado(mesaOrigenId);
+          
+          if (mozoAsignado) {
+            console.log('🔄 Transfiriendo mozo:', mozoAsignado.nombre, 'de mesa origen a destino');
+            
+            // Asignar mozo a mesa destino
+            await asignacionesMozoService.asignarMozo(
+              mesaDestinoId, 
+              mozoAsignado.id, 
+              `Transferido desde mesa origen - Transferencia completa`
+            );
+            
+            // Liberar mozo de mesa origen
+            await asignacionesMozoService.liberarMozo(
+              mesaOrigenId, 
+              `Mesa transferida completamente - Transferencia completa`
+            );
+            
+            console.log('✅ Mozo transferido exitosamente');
+          }
+        } catch (mozoError) {
+          console.error('⚠️ Error transfiriendo mozo (productos OK):', mozoError);
+          toastService.warning('Productos transferidos, pero hubo un problema con el mozo');
+        }
+      }
+
+      // ✅ 3. Mensaje de éxito diferenciado
+      if (transferirTodos) {
+        toastService.success('Transferencia completa realizada: productos y mozo transferidos');
+      } else {
+        toastService.success('Transferencia parcial realizada: productos seleccionados transferidos');
+      }
+      
       return response.data;
     } catch (error) {
+      console.error('Error en transferir:', error);
       toastService.error('Error al transferir');
       return null;
     }

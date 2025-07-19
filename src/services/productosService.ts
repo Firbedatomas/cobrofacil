@@ -107,6 +107,17 @@ class ProductosService {
     }
   }
 
+  // Crear nueva categoría
+  async crearCategoria(datos: { nombre: string; descripcion?: string }): Promise<{ id: string; nombre: string }> {
+    try {
+      const response = await api.post('/categorias/rapida', datos);
+      return response.data.categoria;
+    } catch (error) {
+      console.error('Error al crear categoría:', error);
+      throw error;
+    }
+  }
+
   // Crear nuevo producto
   async crearProducto(datosProducto: {
     codigo?: string;
@@ -137,6 +148,16 @@ class ProductosService {
       return response.data.producto;
     } catch (error) {
       console.error('Error al actualizar producto:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar producto
+  async eliminarProducto(id: string): Promise<void> {
+    try {
+      await api.delete(`/productos/${id}`);
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
       throw error;
     }
   }
