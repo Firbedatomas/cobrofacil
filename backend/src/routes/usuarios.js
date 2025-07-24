@@ -9,6 +9,7 @@ const router = express.Router();
 // Validaciones
 const validacionUsuario = [
   body('email')
+    .optional()
     .isEmail()
     .withMessage('Debe proporcionar un email válido')
     .normalizeEmail(),
@@ -114,6 +115,109 @@ router.get('/', verificarToken, verificarAdmin, [
     console.error('Error obteniendo usuarios:', error);
     res.status(500).json({
       error: 'Error interno del servidor'
+    });
+  }
+});
+
+// POST /api/usuarios - Crear usuario (solo admins)
+router.post('/', verificarToken, verificarAdmin, validacionUsuario, async (req, res) => {
+  try {
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos inválidos',
+        detalles: errores.array()
+      });
+    }
+
+    const { email, nombre, apellido, password, rol } = req.body;
+
+    // Para mozos, email y contraseña son opcionales
+    if (rol !== 'MOZO') {
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email requerido',
+          message: 'El email es obligatorio para usuarios que no son mozos'
+        });
+      }
+
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Contraseña requerida',
+          message: 'La contraseña es obligatoria para usuarios que no son mozos'
+        });
+      }
+    }
+
+    // Para mozos, generar email y contraseña automáticamente si no se proporcionan
+    let emailFinal = email;
+    let passwordFinal = password;
+
+    if (rol === 'MOZO') {
+      if (!email) {
+        // Generar email automático basado en nombre y apellido
+        const emailBase = `${nombre.toLowerCase().replace(/\s+/g, '')}.${apellido.toLowerCase().replace(/\s+/g, '')}`;
+        emailFinal = `${emailBase}@mozos.local`;
+      }
+      
+      if (!password) {
+        // Generar contraseña automática
+        passwordFinal = 'mozo123';
+      }
+    }
+
+    // Verificar si el email ya existe
+    const usuarioExistente = await prisma.usuario.findUnique({
+      where: { email: emailFinal }
+    });
+
+    if (usuarioExistente) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email ya registrado',
+        message: 'Ya existe un usuario con ese email'
+      });
+    }
+
+    // Hash de la contraseña
+    const passwordHash = await bcrypt.hash(passwordFinal, 12);
+
+    // Crear usuario
+    const usuario = await prisma.usuario.create({
+      data: {
+        email: emailFinal,
+        nombre,
+        apellido,
+        password: passwordHash,
+        rol: rol || 'MOZO'
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: usuario.id,
+        email: usuario.email,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        rol: usuario.rol,
+        activo: usuario.activo,
+        fechaCreacion: usuario.fechaCreacion
+      },
+      message: rol === 'MOZO' 
+        ? 'Mozo creado correctamente' 
+        : 'Usuario creado correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error creando usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      message: 'Error al crear usuario'
     });
   }
 });
@@ -392,6 +496,62 @@ router.patch('/:id/password', verificarToken, verificarAdmin, [
     console.error('Error actualizando contraseña:', error);
     res.status(500).json({
       error: 'Error interno del servidor'
+    });
+  }
+});
+
+// DELETE /api/usuarios/:id - Eliminar usuario (solo admins)
+router.delete('/:id', verificarToken, verificarAdmin, [
+  param('id').isLength({ min: 1 }).withMessage('ID de usuario inválido')
+], async (req, res) => {
+  try {
+    const errores = validationResult(req);
+    if (!errores.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID de usuario inválido',
+        detalles: errores.array()
+      });
+    }
+
+    // Verificar que el usuario existe
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!usuario) {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado',
+        message: 'El usuario especificado no existe'
+      });
+    }
+
+    // No permitir que el usuario se elimine a sí mismo
+    if (req.usuarioId === req.params.id) {
+      return res.status(400).json({
+        success: false,
+        error: 'No puedes eliminarte a ti mismo',
+        message: 'No es posible eliminar tu propia cuenta'
+      });
+    }
+
+    // Eliminar usuario
+    await prisma.usuario.delete({
+      where: { id: req.params.id }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Usuario eliminado correctamente'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      message: 'Error al eliminar usuario'
     });
   }
 });

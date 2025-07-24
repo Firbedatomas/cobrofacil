@@ -43,6 +43,9 @@ import asignacionesMozoRoutes from './routes/asignaciones-mozo.js';
 // Rutas de red
 import networkRoutes from './routes/network.js';
 
+// Rutas de configuración
+import configuracionSistemaRoutes from './routes/configuracion-sistema.js';
+
 // Cargar variables de entorno
 dotenv.config();
 
@@ -145,6 +148,9 @@ app.use('/api/asignaciones-mozo', asignacionesMozoRoutes);
 
 // Rutas de red
 app.use('/api/network', networkRoutes);
+
+// Rutas de configuración del sistema
+app.use('/api/configuracion-sistema', configuracionSistemaRoutes);
 
 // Middleware para rutas no encontradas
 app.use('*', (req, res) => {

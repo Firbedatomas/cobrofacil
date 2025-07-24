@@ -31,6 +31,9 @@ const Caja = React.lazy(() =>
 const ConfiguracionAfip = React.lazy(() => 
   import('./pages/ConfiguracionAfip').then(module => ({ default: module.default }))
 );
+const ConfiguracionGeneral = React.lazy(() => 
+  import('./pages/ConfiguracionGeneral').then(module => ({ default: module.default }))
+);
 const GestionMesas = React.lazy(() => 
   import('./pages/GestionMesas/GestionMesas').then(module => ({ default: module.default }))
 );
@@ -135,6 +138,34 @@ const theme = createTheme({
           '&:hover': {
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          '& .MuiSelect-select': {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          },
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 16px',
+        },
+      },
+    },
+    MuiPopover: {
+      styleOverrides: {
+        root: {
+          zIndex: 9999,
         },
       },
     },
@@ -371,6 +402,7 @@ function App() {
                 <Route path="/caja" element={<ProtectedLayout><Caja /></ProtectedLayout>} />
                 <Route path="/reportes-fiscales" element={<ProtectedLayout><ReportesFiscales /></ProtectedLayout>} />
                 <Route path="/configuracion-afip" element={<ProtectedLayout><ConfiguracionAfip /></ProtectedLayout>} />
+                <Route path="/configuracion-general" element={<ProtectedLayout><ConfiguracionGeneral /></ProtectedLayout>} />
                 <Route path="/gestion-mesas" element={<ProtectedLayout><GestionMesas /></ProtectedLayout>} />
               </Routes>
             </Suspense>

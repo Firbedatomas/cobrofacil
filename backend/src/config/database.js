@@ -18,7 +18,16 @@ export const conectarDB = async () => {
     
   } catch (error) {
     console.error('❌ Error conectando a la base de datos:', error);
-    process.exit(1);
+    console.log('⚠️  Modo de desarrollo: Continuando sin base de datos...');
+    console.log('📝 Para usar la base de datos completa, instala PostgreSQL y ejecuta: npx prisma db push');
+    
+    // En modo desarrollo, no salir del proceso
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Servidor iniciando en modo desarrollo sin base de datos');
+      return;
+    } else {
+      process.exit(1);
+    }
   }
 };
 

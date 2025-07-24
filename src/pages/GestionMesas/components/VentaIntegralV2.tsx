@@ -274,7 +274,7 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
       
       const resultado = await handlers.handleFacturacion(
         ventaActiva.id, 
-        tipoComprobante.toLowerCase(), 
+        tipoComprobante, // ✅ NO convertir a minúsculas, el backend espera mayúsculas
         undefined,
         formasPago
       );
@@ -391,7 +391,7 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
 
         const resultado = await handlers.handleFacturacion(
           ventaActiva.id, 
-          tipoComprobanteSeleccionado.toLowerCase(), 
+          tipoComprobanteSeleccionado, // ✅ NO convertir a minúsculas, el backend espera mayúsculas
           undefined, // datosCliente
           formasPago
         );
@@ -1176,7 +1176,7 @@ const VentaIntegralV2: React.FC<VentaIntegralV2Props> = ({
 
               const resultado = await handlers.handleFacturacion(
                 ventaActiva.id, 
-                'ticket',
+                'TICKET', // ✅ Corregido: usar mayúsculas como espera el backend
                 undefined,
                 formasPago
               );

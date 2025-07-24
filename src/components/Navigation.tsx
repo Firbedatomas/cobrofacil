@@ -43,6 +43,13 @@ export const Navigation = () => {
     setCurrentUser(user);
   }, []);
 
+  // Cerrar menú cuando cambie la ruta
+  useEffect(() => {
+    if (anchorEl) {
+      setAnchorEl(null);
+    }
+  }, [location.pathname]);
+
   const isActive = (path: string) => {
     return location.pathname === path;
   };
@@ -54,6 +61,31 @@ export const Navigation = () => {
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
+
+  // Cerrar menú al hacer click fuera
+  const handleClickOutside = (event: MouseEvent) => {
+    if (anchorEl && !anchorEl.contains(event.target as Node)) {
+      setAnchorEl(null);
+    }
+  };
+
+  // Agregar event listener para click fuera
+  useEffect(() => {
+    if (anchorEl) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setAnchorEl(null);
+        }
+      };
+      
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [anchorEl]);
 
   const handleLogout = async () => {
     try {
@@ -333,6 +365,9 @@ export const Navigation = () => {
                 backgroundColor: 'rgba(255,255,255,0.1)'
               }
             }}
+            aria-controls={Boolean(anchorEl) ? 'user-menu' : undefined}
+            aria-haspopup="true"
+            aria-expanded={Boolean(anchorEl)}
           >
             <Avatar 
               sx={{ 
@@ -348,11 +383,15 @@ export const Navigation = () => {
               {getUserInitials(currentUser)}
             </Avatar>
           </IconButton>
+          
+
 
           <Menu
+            id="user-menu"
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
+            onBlur={handleMenuClose}
             transformOrigin={{ horizontal: 'right', vertical: 'top' }}
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             PaperProps={{
@@ -361,9 +400,14 @@ export const Navigation = () => {
                 borderRadius: 2,
                 minWidth: 220,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-                border: '1px solid rgba(255,255,255,0.1)'
+                border: '1px solid rgba(255,255,255,0.1)',
+                zIndex: 9999
               }
             }}
+            sx={{
+              zIndex: 9999
+            }}
+            keepMounted
           >
             <MenuItem onClick={handleMenuClose} sx={{ py: 1.5 }}>
               <Avatar 
@@ -387,9 +431,17 @@ export const Navigation = () => {
               </Box>
             </MenuItem>
             <Divider />
-            <MenuItem onClick={handleMenuClose}>
+            <MenuItem 
+              component={RouterLink} 
+              to="/configuracion-general" 
+              onClick={() => {
+                handleMenuClose();
+                // Asegurar que el menú se cierre inmediatamente
+                setAnchorEl(null);
+              }}
+            >
               <SettingsIcon sx={{ mr: 2, fontSize: '1.2rem' }} />
-              Configuración
+              Configuración General
             </MenuItem>
             <MenuItem onClick={handleMenuClose}>
               <AnalyticsIcon sx={{ mr: 2, fontSize: '1.2rem' }} />
